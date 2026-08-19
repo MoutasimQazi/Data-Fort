@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard · Datafort</title>
+  <link rel="icon" href="brand/datafort-icon.svg" type="image/svg+xml">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css?v=1">
+  <link rel="stylesheet" href="app.css?v=1">
+  <!-- No guard.css here. Admin pages are deliberately unhardened —
+       an admin who cannot copy a lead ID out of the audit log cannot
+       do their job. See requirements 7.2. -->
+
+  <script src="theme.js?v=1"></script>
+</head>
+
+<body>
+
+<div class="shell">
+
+  <!-- ══ Admin sidebar (shared markup across admin pages) ═════════ -->
+  <aside class="side">
+    <div class="side__brand">
+      <svg viewBox="0 0 120 128" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M12 18 h22 v14 h12 V18 h28 v14 h12 V18 h22 v66 l-48 38 -48 -38 Z M30 40 v36 l30 24 30 -24 V40 Z"/>
+        <path d="M38 46 L60 57 L82 46 L82 57 L60 68 L38 57 Z"/>
+        <path d="M38 60 L60 71 L82 60 L82 71 L60 82 L38 71 Z"/>
+        <path d="M38 74 L60 85 L82 74 L82 85 L60 96 L38 85 Z"/>
+      </svg>
+      <span class="word">DATAFORT</span>
+    </div>
+
+    <a class="navlink" href="index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      Dashboard
+    </a>
+    <a class="navlink" href="leads.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      Leads
+    </a>
+    <a class="navlink" href="import.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+      Import
+    </a>
+    <a class="navlink" href="users.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+      Users
+    </a>
+
+    <a class="navlink" href="devices.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M2 20h20"/></svg>
+      Devices
+    </a>
+
+    <div class="side__label">Oversight</div>
+
+    <a class="navlink" href="audit.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6M9 11h3"/></svg>
+      Audit Log
+      <span class="count" id="alertCount">5</span>
+    </a>
+    <a class="navlink" href="settings.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      Settings
+    </a>
+
+    <div class="side__foot">
+      <button class="whoami" type="button">
+        <span class="avatar" data-who="avatar">–</span>
+        <span>
+          <span class="whoami__name" data-who="name">–</span><br>
+          <span class="whoami__role" data-who="role">–</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div id="scrim" class="scrim" hidden></div>
+
+
+  <div class="main">
+
+    <div class="topbar">
+      <button class="iconbtn menubtn" id="menuBtn" aria-label="Open navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+      <div>
+        <h1>Dashboard</h1>
+        <div class="topbar__sub" id="tenantLine">–</div>
+      </div>
+      <div class="topbar__spacer"></div>
+      <button class="iconbtn" id="themeBtn" aria-label="Switch theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+    </div>
+
+    <div class="mockbar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <span>Sample data. The PHP API is not connected.</span>
+    </div>
+
+    <div class="content">
+
+      <div class="tiles" id="tiles"></div>
+
+      <!-- The anomaly feed sits above the charts on purpose. Charts tell
+           an admin how the team is doing; this tells them something is
+           wrong right now, which is the reason they opened the page. -->
+      <div class="card">
+        <div class="card__head">
+          <div>
+            <h2>Needs attention</h2>
+            <div class="sub">Unusual access patterns in the last 24 hours</div>
+          </div>
+          <div class="right">
+            <a class="btn btn--ghost btn--sm" href="audit.html">Full audit log</a>
+          </div>
+        </div>
+        <div class="feed" id="feed"></div>
+      </div>
+
+      <div class="chartgrid">
+
+        <div class="card">
+          <div class="card__head"><h2>Leads by status</h2></div>
+          <div class="card__body">
+            <figure class="figure">
+              <div id="chartStatus"></div>
+              <details class="figtable">
+                <summary>View as table</summary>
+                <div id="tableStatus"></div>
+              </details>
+            </figure>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__head"><h2>Reveals vs contacts</h2></div>
+          <div class="card__body">
+            <figure class="figure">
+              <div class="legend" id="legendTrend"></div>
+              <div id="chartTrend"></div>
+              <figcaption>
+                A gap between reveals and contacts is the signal worth
+                watching — data being looked at faster than it is worked.
+              </figcaption>
+              <details class="figtable">
+                <summary>View as table</summary>
+                <div id="tableTrend"></div>
+              </details>
+            </figure>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__head"><h2>Reveals today by rep</h2></div>
+          <div class="card__body">
+            <figure class="figure">
+              <div id="chartReps"></div>
+              <details class="figtable">
+                <summary>View as table</summary>
+                <div id="tableReps"></div>
+              </details>
+            </figure>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__head">
+            <div>
+              <h2>Return by source</h2>
+              <div class="sub">Revenue per rupee of data cost</div>
+            </div>
+          </div>
+          <div class="card__body">
+            <figure class="figure">
+              <div id="chartRoi"></div>
+              <figcaption>
+                Website form has no acquisition cost, so it is excluded —
+                dividing by zero is not a return.
+              </figcaption>
+              <details class="figtable">
+                <summary>View as table</summary>
+                <div id="tableRoi"></div>
+              </details>
+            </figure>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="mock-data.js?v=1"></script>
+<script src="app.js?v=1"></script>
+<script src="charts.js?v=1"></script>
+<script src="dashboard.js?v=1"></script>
+</body>
+</html>

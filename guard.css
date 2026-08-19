@@ -1,0 +1,126 @@
+/* guard.css — visual half of the rep-page hardening.
+ *
+ * Loaded ONLY on rep pages, alongside guard.js and watermark.js.
+ * Admin pages deliberately skip this file: admins are the tenant's
+ * trusted party and need to copy IDs out of the audit log.
+ *
+ * See requirements 7.2 and 7.3.
+ */
+
+/* ══ Selection ═══════════════════════════════════════════════════ */
+
+/* Nothing outside a real input is selectable. Killing selection is what
+ * makes the copy block feel intentional rather than broken — a user who
+ * cannot select never reaches for Ctrl+C in the first place. */
+[data-guarded="true"] body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+[data-guarded="true"] input,
+[data-guarded="true"] textarea,
+[data-guarded="true"] [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Long-press on iOS pops the copy callout even with user-select off. */
+[data-guarded="true"] body {
+  -webkit-touch-callout: none;
+}
+
+
+/* ══ Print ═══════════════════════════════════════════════════════ */
+
+/* Ctrl+P is intercepted in guard.js, but the browser menu and the OS
+ * print dialog are still reachable. This is the backstop: the printed
+ * page carries a notice and no data. */
+@media print {
+  [data-guarded="true"] body > * { display: none !important; }
+
+  [data-guarded="true"] body::after {
+    content: 'Datafort — lead data cannot be printed. This attempt has been recorded.';
+    display: block;
+    padding: 40px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    color: #000;
+  }
+}
+
+
+/* ══ Blur on focus loss ══════════════════════════════════════════ */
+
+/* Applied when the window loses focus. Snipping Tool takes focus when
+ * it opens, so the capture lands on this instead of the leads. */
+.shroud {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.shroud__box {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  text-align: center;
+  padding: 22px 30px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+.shroud__box strong { font-family: var(--font-head); font-size: 15px; }
+.shroud__box span   { font-size: 13px; color: var(--text-muted); }
+
+/* backdrop-filter is not universal. Where it is missing the shroud would
+ * be a weak tint over readable data, so blur the content itself instead. */
+@supports not (backdrop-filter: blur(4px)) {
+  body.is-shrouded .shell { filter: blur(13px); }
+  .shroud { background: transparent; }
+}
+
+
+/* ══ Devtools open ═══════════════════════════════════════════════ */
+
+/* Set by guard.js when the size heuristic trips. Blurring sensitive
+ * cells is theatre against a determined inspector — the point is that
+ * the rep sees the product noticed, and the admin sees the event. */
+body.is-inspected .masked,
+body.is-inspected .revealed,
+body.is-inspected .lead-contact {
+  filter: blur(5px);
+  transition: filter .15s;
+}
+
+
+/* ══ Watermark ═══════════════════════════════════════════════════ */
+
+/* Tiled identity across every screen carrying lead data. Painted by
+ * watermark.js into a repeating background so there is no single node
+ * to delete — though anyone with devtools can still remove the layer.
+ *
+ * That is exactly why the REVEALED contact value is a server-rendered
+ * image with the watermark baked into the same pixels (see .revealed in
+ * app.css). This layer deters the photo; the baked pixels defeat the
+ * screenshot crop. */
+.watermark {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  pointer-events: none;
+  opacity: .055;
+  background-repeat: repeat;
+}
+
+:root[data-theme="dark"] .watermark { opacity: .075; }
+
+@media print {
+  /* If the print block is ever bypassed, the watermark must survive it. */
+  .watermark { opacity: .3 !important; display: block !important; }
+}

@@ -1,0 +1,592 @@
+PROJECT DATAFORT - REQUIREMENTS
+Last updated: 2026-08-18
+
+
+====================================================================
+1. PROBLEM
+====================================================================
+
+Small, sales-oriented startups run their operations on Excel sheets.
+Those sheets hold customer and potential-customer data. The company
+relies entirely on the sheet, so:
+
+  - The data is unsafe. It is a file, so anyone with access can copy
+    it, mail it, or carry it out on a pendrive.
+  - The data is expensive. Lead lists are purchased at high cost, so
+    a leak is a direct financial loss and hands the list to a
+    competitor for free.
+
+The asset is revenue-critical and trivially exfiltrated.
+
+
+====================================================================
+2. COMPETITORS
+====================================================================
+
+  - DLP (Data Loss Prevention) suites
+      Enterprise-grade, heavy, priced far above what a small startup
+      can pay. Guards the file without understanding the data.
+
+  - Pendrive / USB blockers
+      Narrow. Covers one leak channel out of many.
+
+Gap we exploit: neither product replaces the spreadsheet. They wrap
+protection around a file that still exists. Datafort removes the file.
+
+
+====================================================================
+3. SOLUTION
+====================================================================
+
+Datafort is a multi-tenant SaaS ERP that replaces the sales
+spreadsheet. Leads live inside a controlled application, an admin
+governs who sees what, and every interaction with a lead record is
+logged.
+
+What we actually sell is not lead management. It is the guarantee
+that the expensive list the company bought does not walk out the
+door with a sales rep.
+
+
+====================================================================
+4. ROLES
+====================================================================
+
+ADMIN
+  - Imports leads (Excel / CSV and other sources)
+  - Assigns leads to users
+  - Reassigns and recalls leads
+  - Sets the daily lead quota for each user (see section 7)
+  - Tracks user activity
+  - Reads audit logs
+  - Views the dynamic dashboard
+
+SALES USER
+  - Sees ONLY the leads assigned to them
+  - Works leads, updates status, logs calls and notes
+  - Cannot export, cannot bulk view, cannot see unassigned leads
+
+KEY PRINCIPLE
+  A rep must never be able to see the whole list. Assignment is not
+  just workflow, it is the primary containment mechanism.
+
+
+====================================================================
+5. CORE MODULES
+====================================================================
+
+5.1 LEAD INGESTION
+    Excel / CSV import with column mapping, validation and dedup.
+    Built as a pluggable adapter layer from day one.
+
+5.2 ASSIGNMENT ENGINE
+    Manual assignment plus rule-based (round-robin, territory,
+    industry). Bulk reassign and recall.
+
+5.3 USER ACTIVITY TRACKING
+    Logins, leads viewed, fields revealed, time spent per lead,
+    status changes, quota consumption.
+
+5.4 AUDIT LOG
+    Immutable, append-only. Every read and every write recorded with
+    actor, timestamp, IP and device.
+
+5.5 DYNAMIC DASHBOARD
+    Live tenant-wide view: leads by status, per-rep throughput,
+    conversion funnel, cost per source and ROI per source, plus
+    anomaly signals (who is viewing far more than they are working).
+
+
+====================================================================
+6. DATA SOURCES
+====================================================================
+
+Excel is the day-one path, but the ingestion layer must be pluggable
+because all of these will appear:
+
+  - Excel / CSV upload            (day one)
+  - Google Sheets import          (very common in this segment)
+  - CRM sync                      (HubSpot, Zoho, Salesforce, Freshsales)
+  - Web forms / landing pages     (inbound leads)
+  - Lead marketplaces             (IndiaMART, JustDial, TradeIndia)
+  - WhatsApp Business / inbound email
+  - Public REST API               (customer integrations)
+  - Manual single entry           (event / field capture)
+
+All sources normalise into one lead schema.
+
+NORMALISED LEAD SCHEMA
+  tenant_id, name, company, designation, email, phone, alt_phone,
+  city, state, industry, company_size, website, linkedin, source,
+  source_cost, acquired_date, status, owner_id, notes, last_contacted
+
+Note on source_cost: because the pitch is "this data is expensive",
+tracking cost per list and cost per lead lets the dashboard show ROI
+per source. DLP and pendrive blockers structurally cannot do this,
+because they do not know what the data is worth.
+
+OPEN GAP TO FIX
+  After the admin imports the Excel file, the original .xlsx still
+  sits on their laptop, unprotected. Import must end with a mandatory
+  step: source file destroyed, or archived into an encrypted vault.
+  Without this the security story has a hole on day one.
+
+
+====================================================================
+7. BLOCKING THE LEAK CHANNELS
+====================================================================
+
+Target channels: screenshots, copy-paste, print, download, email.
+
+Datafort is a WEB APPLICATION. That decision sets what is possible
+here. Download and email are hard-blocked on the server. Copy-paste
+and print are deterred on the client but bypassable with devtools.
+Screenshots cannot be prevented in a browser at all.
+
+So the strategy is: put the real weight on the server, and make
+anything that does get captured worthless and traceable.
+
+  7.1  SERVER-SIDE      -> enforceable, carries the defence
+  7.2  CLIENT HARDENING -> deterrent, generates audit signal
+  7.3  TRACEABILITY     -> attribution, makes leaking risky
+
+--------------------------------------------------------------------
+7.1 SERVER-SIDE - TRULY ENFORCEABLE (BUILD FIRST)
+--------------------------------------------------------------------
+
+  DOWNLOAD / EXPORT
+    Never build the endpoint. No export API means no export.
+    Enforced in the backend, so devtools cannot reach it.
+
+  FIELD MASKING  [CONFIRMED]
+    Phone and email display masked by default, e.g. 9876****10.
+    Full value only on an explicit "reveal" click, which is logged
+    and consumes quota.
+
+  DAILY QUOTA - ADMIN CONTROLLED  [CONFIRMED]
+    The admin decides how many leads each user receives per day.
+    Quota is configurable per user, not a fixed global number.
+    A rep capped at N leads a day cannot exfiltrate a 10,000-row
+    list regardless of what they do on the client.
+
+  BULK EXPOSURE LIMITS
+    Pagination caps. Reveal is a per-record logged action.
+
+  EMAIL
+    Raw address never exposed. Rep composes in-app, Datafort sends
+    through a server-side relay. The rep never possesses the address.
+
+--------------------------------------------------------------------
+7.2 CLIENT HARDENING - WEB APP  [CONFIRMED]
+--------------------------------------------------------------------
+
+  DELIVERY MODEL: Web application for everyone.
+                  Sales reps and admin both use the browser.
+                  No desktop / Electron client.
+
+  Browser controls are DETERRENTS, not guarantees. A determined user
+  with devtools can bypass anything on this list. They stop the
+  casual leaker and they generate audit signal, which is their real
+  value. Containment lives in 7.1 and attribution lives in 7.3.
+
+  - Copy, cut, right-click, text selection disabled
+    (oncopy / oncut / oncontextmenu handlers, user-select: none)
+  - Ctrl+P, Ctrl+S, Ctrl+U keyboard interception
+  - Print CSS renders a blank page
+  - BLUR ON FOCUS LOSS: lead data blurs the moment the window or tab
+    loses focus. Windows Snipping Tool and Snip and Sketch steal
+    focus when opened, so the data is already blurred before the
+    capture happens. This is the strongest screenshot deterrent
+    available in a browser. It does NOT stop the raw PrintScreen
+    key, which does not steal focus.
+  - Devtools detection heuristics. On detection: blank the screen,
+    end the session, write an audit event and alert the admin.
+    Detection is bypassable, but the attempt itself becomes a
+    logged security signal.
+
+  ACCEPTED LIMITATION
+    In a browser, screenshots cannot be technically prevented. Raw
+    PrintScreen, OS capture tools that do not steal focus, screen
+    recording and a phone camera all remain open. The answer to
+    screenshots in a web build is therefore NOT prevention. It is:
+      (a) limit what is ever on screen  -> masking + admin quota (7.1)
+      (b) make every capture traceable  -> watermark + honeytokens (7.3)
+    A screenshot of 20 masked leads carrying the rep's name across it
+    is a low-value, high-risk act. That is the goal.
+
+--------------------------------------------------------------------
+7.3 TRACEABILITY - MAKES LEAKS POINTLESS
+--------------------------------------------------------------------
+
+  PER-USER DYNAMIC WATERMARK
+    Rep name, user ID and timestamp tiled faintly across every lead
+    screen. A phone photo now identifies exactly who took it.
+
+    WEB-SPECIFIC PROBLEM: a watermark drawn as a DOM overlay can be
+    deleted in devtools in five seconds.
+
+    FIX - BAKED-IN WATERMARK: when a rep reveals a phone or email,
+    the server does not return text. It returns a small image with
+    the value and the watermark rendered into the same pixels.
+    Deleting the watermark now means deleting the data. This also
+    kills copy-paste of the revealed value for free, because there
+    is no text node to select.
+    Trade-off: costs accessibility and adds render load. Apply it to
+    revealed contact fields only, not the whole screen.
+
+  HONEYTOKENS
+    Seed 2-3 unique fake leads into each rep assigned set. If that
+    list surfaces at a competitor, the fake records identify whose
+    copy leaked. Forensic attribution.
+
+  ANOMALY ALERTS
+    Real-time admin alert on: unusual reveal rate, access at odd
+    hours, login from new device or IP, quota exhausted unusually
+    fast.
+
+
+====================================================================
+8. SCALABILITY
+====================================================================
+
+  - Multi-tenant from day one. tenant_id on every row.
+  - Postgres row-level security, so a query cannot cross tenants
+    even if the application layer has a bug.
+  - Excel imports run async on a queue. A 100k-row file must never
+    block a request.
+  - Audit logs in append-only partitioned storage. They will outgrow
+    the operational tables quickly.
+  - Stateless API behind a load balancer.
+  - Redis for sessions and quota counters.
+
+
+====================================================================
+9. DECISIONS LOCKED
+====================================================================
+
+  [x] Delivery: WEB APPLICATION for both reps and admin.
+      No Electron, no desktop client.
+  [x] Masking: on by default, reveal-on-click, logged
+  [x] Daily quota: admin sets the number of leads per user per day
+  [x] Multi-tenant SaaS, scalable architecture
+  [x] Leak channels:
+        download  -> hard blocked (no export endpoint exists)
+        email     -> hard blocked (server-side relay, address hidden)
+        copy-paste-> deterred (JS blocks, bypassable via devtools)
+        print     -> deterred (blank print CSS, key interception)
+        screenshot-> NOT preventable in a browser. Handled by
+                     minimising exposure (masking + quota) and by
+                     making every capture attributable (watermark +
+                     honeytokens + anomaly alerts).
+
+  CONSEQUENCE OF THE WEB-ONLY DECISION
+    Server-side containment (7.1) and traceability (7.3) are no
+    longer one layer of three. They are the whole defence. Both must
+    be built to full strength before launch, not deferred.
+
+
+====================================================================
+10. STILL OPEN
+====================================================================
+
+  - Tech stack for backend and frontend
+  - Timeline and budget
+  - Pricing model and tiers
+  - Whether quota is "leads assigned per day" or "reveals per day"
+    or both (currently written as leads assigned per day).
+    Recommend both: assignment caps total exposure, reveal caps
+    harvest speed.
+  - Device / session binding: whether a rep session should be locked
+    to an approved device fingerprint and IP range. Matters more now
+    that the client is a browser.
+  - Screen-recording and virtual-machine detection: worth it or not
+  - Onboarding flow for the first Excel import
+  - Original logo source files (see section 11)
+  - Confirm brand hex values and the wordmark typeface
+
+
+====================================================================
+11. BRAND
+====================================================================
+
+Logo approved. Assets live in  brand/
+
+  brand/datafort-icon.svg        full-colour mark
+  brand/datafort-icon-mono.svg   single colour, uses currentColor
+  brand/datafort-lockup.svg      mark + wordmark
+  brand/BRAND.txt                palette, usage rules, open items
+  brand/preview.html             open in a browser to review
+  brand/source/                  EMPTY - original artwork goes here
+
+THE MARK
+  A hexagonal fort keep with battlements, hollow, holding three
+  stacked data layers. Fort plus data. It states the product thesis
+  in one shape: the lead list lives inside the walls.
+
+PALETTE  (eyedropper estimates - confirm against the source file)
+  Fort Navy     #14213D   primary, chrome, dark surfaces
+  Signal Blue   #1E6BF1   accent, buttons, links, active state
+  Off White     #F4F6F8   page background
+  Ink Black     #000000   black version of the mark
+  Pure White    #FFFFFF   white version of the mark, cards
+
+ACTION NEEDED
+  The logo was shared in chat, not as a file, so the SVGs in brand/
+  are a vector REBUILD, not the original artwork. Drop the real files
+  into brand/source/ and, if a true vector original exists, use it
+  and delete the rebuild.
+
+  Also unconfirmed: the wordmark typeface. Close to Poppins Bold or
+  Montserrat Bold, not verified. The lockup currently uses live text,
+  which must be outlined or webfont-embedded before production - a
+  missing font means a broken logo.
+
+DO NOT CONFUSE THE LOGO WITH THE SECURITY WATERMARK
+  The per-user watermark in section 7.3 is rep name, user ID and
+  timestamp. It is forensic, not decorative. The logo must never be
+  used as that watermark.
+
+
+====================================================================
+12. FRONT END — BUILT
+====================================================================
+
+Stack: vanilla HTML / CSS / JS, no framework, no build step, no
+external scripts. Matching the pattern already proven in the
+Movenetics management site. Charts are hand-rolled inline SVG for the
+same reason a security product should not run third-party JS on a page
+full of lead data.
+
+PAGES
+  login.html      sign-in
+  forgot.html     request a reset link
+  reset.html      set a new password from a token
+  index.html      admin dashboard — tiles, anomaly feed, 4 figures
+  leads.html      admin master table, assign / reassign / recall
+  import.html     5-step Excel wizard incl. source-file destruction
+  users.html      accounts, roles, per-user daily quota
+  audit.html      append-only log viewer, no export
+  my-leads.html   REP — assigned leads, masking, quota, watermark
+  lead.html       REP — single lead, status, notes, email relay
+
+SHARED
+  style.css       tokens, reset, form controls, buttons
+  app.css         signed-in shell, tables, tiles, modals, stepper
+  login.css       auth pages only
+  guard.css       rep-page hardening (7.2) + watermark layer
+  theme.js        data-theme before first paint
+  app.js          nav, sidebar, modals, toasts, helpers
+  guard.js        clipboard/print/devtools blocks, blur-on-focus-loss
+  watermark.js    per-user forensic watermark (7.3)
+  charts.js       inline-SVG figures
+  mock-data.js    sample tenant — DELETE when the API lands
+
+GUARD SCOPE  [DECIDED]
+  guard.js and guard.css load on REP pages only (my-leads, lead).
+  Admin pages are deliberately unhardened: an admin who cannot copy a
+  lead ID out of the audit log cannot do their job, and the admin is
+  the tenant's trusted party.
+
+CHART PALETTE — VALIDATED, NOT EYEBALLED
+  light  #2a6fe0 #e2661f #0f9070 #8b5cf6   on #FFFFFF
+  dark   #4d8ef5 #e06c2c #1aa681 #9575ec   on #131E33
+  Both pass all six checks (lightness band, chroma floor, CVD
+  separation, normal-vision floor, contrast). Worst adjacent CVD
+  ΔE 9.1 light / 11.4 dark against a target of 8. Dark steps are
+  chosen for the dark surface, not flipped from the light ones.
+  Status colours (new/working/won/lost) are a separate reserved
+  palette and never double as a categorical series.
+
+BACKEND — BUILT (see section 14)
+  Every page runs on mock-data.js and shows an amber "sample data"
+  bar. Nothing persists. These endpoints are referenced by the front
+  end and do not exist:
+
+    api/auth-login.php       sign in, rate limit, lockout, device trust
+    api/auth-forgot.php      reset link, identical response either way
+    api/auth-reset.php       consume token, set password, kill sessions
+    api/session.php          who am I
+    api/lead-reveal.php      QUOTA CHECK + audit row + watermarked PNG
+    api/lead-email.php       relay send, address never leaves the server
+    api/leads-*.php          list, assign, recall, update status
+    api/import-*.php         upload, parse XLSX, dedup, commit
+    api/users-*.php          create, set quota, suspend
+    api/audit-list.php       read-only, filtered
+    api/security-event.php   batched events from guard.js
+
+  api/lead-reveal.php is the one that carries the product. It must
+  re-check the quota server-side on EVERY call and refuse a client
+  that lies about its remaining count.
+
+  There must be no api/export-*.php. Ever.
+
+
+====================================================================
+13. DEVICE AUTHENTICATION — mTLS  [CONFIRMED]
+====================================================================
+
+Company-laptop-only access, using mutual TLS with client certificates
+issued by a private CA. This sits IN FRONT of everything else.
+
+TWO LEVELS
+  Level 1  Device   client certificate, verified by Apache
+  Level 2  User     email + password, verified by Datafort
+  Level 3  2FA      optional, schema only so far
+
+  Authorized laptop + valid certificate + active device
+    + correct credentials = access.
+  Anything less = denied.
+
+WHY THIS CHANGES THE PRODUCT
+  Before mTLS, the answer to "a rep works from home on their own
+  laptop" was masking, quotas and watermarks — containment and
+  attribution. With mTLS the answer becomes: they cannot connect at
+  all. That is a categorically stronger claim and it is the one worth
+  selling.
+
+  It does NOT replace the other layers. A company laptop in the hands
+  of the employee it was issued to is still the most likely source of
+  a leak, and everything in section 7 still applies to it.
+
+WHERE THE TRUST LIVES
+  In ONE Apache directive:  SSLVerifyClient require
+  plus SSLCACertificateFile pointing at the private CA.
+
+  If that is missing, api/device.php still runs and still returns
+  answers — but they mean nothing, because no certificate was ever
+  demanded. PHP cannot detect this from the inside: "no certificate
+  was required" and "no certificate was sent" look identical.
+
+  Two rules that must never be broken:
+    1. Never read SSL_CLIENT_* from an HTTP header. Apache exposes
+       them as environment variables. A header is client-controlled.
+    2. If a reverse proxy or CDN ever terminates TLS in front of this
+       app, THIS LAYER IS GONE. The proxy holds the certificate, not
+       Apache. mTLS would have to move to the proxy.
+
+  SSLOptions +StdEnvVars +ExportCertData is required or every
+  SSL_CLIENT_* variable is empty. This is the most commonly missed
+  line in an mTLS setup.
+
+ENFORCEMENT MODES  (tenants.device_enforcement, no deploy needed)
+  off      no device check at all — only before the CA exists
+  log      check and record, never block — RUN HERE DURING ENROLMENT
+  enforce  deny unknown / pending / disabled / revoked / expired
+
+  Do not go off -> enforce. In enforce mode a laptop whose enrolment
+  silently failed gets a browser TLS error, not a Datafort page, and
+  there is nothing the product can say to explain it. Sit in log mode
+  until device_auth_log shows zero denials for a full working week.
+
+  Matching Apache staging:
+    Stage A  SSLVerifyClient none
+    Stage B  SSLVerifyClient optional   <- pair with device mode 'log'
+    Stage C  SSLVerifyClient require    <- pair with device mode 'enforce'
+
+  Stage B is the useful one: the browser is asked for a certificate,
+  a missing one still gets through, and Datafort can serve
+  no-device.html explaining exactly what is wrong.
+
+SESSION BINDING
+  Every session records the certificate serial that created it. A
+  session cookie copied onto a personal laptop fails — not because the
+  cookie is invalid, but because that machine presents no certificate
+  and the serial does not match. The cookie is worthless off the
+  device.
+
+THE TWO-PLACE REVOCATION PROBLEM  — IMPORTANT
+  Revoking a device in Datafort blocks the USER. The certificate stays
+  cryptographically valid and Apache still completes the handshake.
+
+  A lost or stolen laptop needs BOTH:
+    1. Devices page -> Revoke              (blocks the user)
+    2. step ca revoke --serial <serial>    (blocks the handshake)
+       and publish the CRL, with
+       SSLCARevocationFile configured in Apache.
+
+  Skip step 2 and the stolen laptop still reaches the login page. It
+  cannot get past it, but the outer door is unlocked.
+
+  Datafort surfaces the exact command in the revoke confirmation
+  because forgetting this is the most likely operational mistake on
+  the whole feature.
+
+PRIVATE KEY PROTECTION
+  certutil -user -importPFX -p "<pw>" My laptop-001.p12 NoExport
+
+  NoExport stops the employee copying the certificate to a personal
+  machine. Without it the device argument collapses into "the file is
+  on the company laptop, please leave it there".
+
+  Honest limit: a local administrator with the right tooling can still
+  extract a software-protected key. TPM-backed keys resist that;
+  NoExport alone only stops the casual copy. Use TPM where the
+  hardware supports it.
+
+CERTIFICATE LIFETIME
+  1 year (step ca certificate --not-after 8760h). The Devices page
+  flags anything expiring within 60 days, because an expired
+  certificate locks the employee out at the TLS layer where Datafort
+  cannot show them a message.
+
+WHAT .htaccess CAN AND CANNOT DO
+  It CANNOT enforce mTLS. It runs after Apache has accepted the
+  connection; SSLVerifyClient cannot be set from .htaccess at all.
+  It is a second line only: HTTPS redirect, hiding files, headers,
+  and optionally redirecting certificate-less visitors to
+  no-device.html.
+
+IF cPanel WILL NOT ALLOW AN APACHE INCLUDE
+  Then this cannot be done on that hosting. Move to a VPS. Ask the
+  host this exact question first:
+
+    "Does this cPanel server support Apache mutual TLS client
+     certificate authentication using SSLVerifyClient, and can a
+     custom trusted client CA be configured for this domain?"
+
+
+====================================================================
+14. BACKEND — BUILT
+====================================================================
+
+PHP 8.1+, MySQL, PDO with real prepared statements. No framework, no
+Composer, no external dependencies — same shape as pm-backend-php.
+
+  api/config.sample.php   copy to config.php, never commit
+  api/db.php              PDO, headers, masking, audit()
+  api/auth.php            sessions, guards, quota count, throttle
+  api/device.php          mTLS verification — READ THIS FIRST
+  api/.htaccess           blocks direct access to the libraries
+  api/migrations/001_schema.sql
+  api/README.md           install, endpoints, test matrix, known gaps
+  apache/datafort-mtls.conf   THE SECURITY BOUNDARY
+
+  16 endpoints. Full list in api/README.md.
+
+api/lead-reveal.php carries the product. Four rules in its header:
+  1. Quota re-counted server-side on every call
+  2. Ownership checked before existence
+  3. Ledger row written BEFORE the value is rendered
+  4. Response is a PNG with the watermark in the same pixels,
+     never JSON containing the string
+
+There is no export endpoint and there must never be one.
+
+TENANT ISOLATION — WEAKER THAN SPECIFIED
+  Section 8 called for Postgres row-level security. This runs on MySQL
+  under cPanel, and MySQL has no RLS. Isolation is enforced in
+  application code: every query carries tenant_id. A missing WHERE
+  clause is a cross-tenant leak rather than an empty result. This is a
+  real downgrade and must be covered by code review.
+
+APPEND-ONLY IS A GRANT, NOT A PROMISE
+  REVOKE UPDATE, DELETE ON datafort.audit_log FROM the app user.
+  Without it, a SQL injection anywhere can erase the evidence trail.
+
+STILL MISSING
+  - XLSX parsing (needs PhpSpreadsheet); CSV preview works
+  - Dashboard endpoints — index.html still reads mock-data.js
+  - 2FA verification (schema only)
+  - CSRF tokens (currently SameSite=Strict + JSON content type)
+  - PHP was never linted — no PHP binary on the build machine.
+    Run php -l over every file before deploying.

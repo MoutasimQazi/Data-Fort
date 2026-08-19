@@ -1,0 +1,109 @@
+# Datafort — document root .htaccess
+#
+# READ THIS BEFORE RELYING ON ANY OF IT
+#
+# .htaccess CANNOT enforce mutual TLS. It runs after Apache has already
+# accepted the connection, so by the time these rules execute the
+# decision about whether a client certificate was required has already
+# been made — in the vhost, by SSLVerifyClient.
+#
+# What this file does: forces HTTPS, hides files that should not be
+# served, sets security headers, and (optionally) sends certificate-less
+# visitors somewhere that explains itself instead of a bare 403.
+#
+# What actually enforces the device rule: apache/datafort-mtls.conf.
+# See requirements section 24.
+
+
+# ══ Force HTTPS ═══════════════════════════════════════════════════
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} !=on
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+
+# ══ Friendly refusal for unenrolled devices ═══════════════════════
+#
+# Only enable this alongside `SSLVerifyClient optional` in the vhost.
+#
+# With `optional`, a laptop without a certificate still completes the
+# handshake, so we can serve it a page that explains what is wrong —
+# far better than a browser-level TLS error the employee cannot read.
+#
+# With `require`, the connection is refused during the handshake and
+# this rule never runs; the user sees a raw browser error instead. That
+# is more secure and much worse to support, which is the trade-off.
+#
+# Left commented out because with mTLS not yet configured,
+# SSL_CLIENT_VERIFY is empty and this would redirect EVERY visitor,
+# including into a loop on no-device.html itself.
+#
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{REQUEST_URI} !^/no-device\.html$
+#     RewriteCond %{REQUEST_URI} !^/(style|app|login|guard)\.css$
+#     RewriteCond %{REQUEST_URI} !^/(theme)\.js$
+#     RewriteCond %{REQUEST_URI} !^/brand/
+#     RewriteCond %{SSL:SSL_CLIENT_VERIFY} !=SUCCESS
+#     RewriteRule ^ /no-device.html?reason=no_certificate [L,R=302]
+# </IfModule>
+
+
+# ══ Never serve these ═════════════════════════════════════════════
+<FilesMatch "\.(sql|md|log|bak|save|swp|conf|sample\.php)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# The Apache config template documents the security boundary and the CA
+# paths. No reason for it to be web-readable.
+<IfModule mod_alias.c>
+    RedirectMatch 404 ^/apache/
+</IfModule>
+
+# mock-data.js is sample data for development. It must not exist in
+# production at all — this is a safety net, not a substitute for
+# deleting it.
+<FilesMatch "^mock-data\.js$">
+    Require all denied
+</FilesMatch>
+
+
+# ══ Headers ═══════════════════════════════════════════════════════
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "same-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+
+    # Pages showing lead data must never sit in a shared cache, and must
+    # not be restorable from the back/forward cache after sign-out.
+    <FilesMatch "\.(html)$">
+        Header always set Cache-Control "no-store, no-cache, must-revalidate, private"
+    </FilesMatch>
+</IfModule>
+
+
+# ══ Content Security Policy ═══════════════════════════════════════
+#
+# Google Fonts is the only external origin. Everything else is same-origin.
+# 'unsafe-inline' for styles is needed by the inline style attributes in
+# the current markup — worth removing later by moving them into the
+# stylesheets, at which point this can be tightened to 'self' only.
+#
+# data: is allowed for images because revealed contact values render as
+# canvas data URIs in the mock. Once api/lead-reveal.php serves real
+# PNGs, drop data: from img-src.
+<IfModule mod_headers.c>
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+</IfModule>
+
+
+# ══ Misc ══════════════════════════════════════════════════════════
+Options -Indexes
+DirectoryIndex login.html index.html

@@ -1,0 +1,273 @@
+/* style.css — Datafort design tokens and shared primitives.
+ *
+ * Loaded on every page. Page-specific rules live in their own file
+ * (login.css, dashboard.css, ...) so the sign-in screen — the one page
+ * every visitor fetches cold with no warm cache — stays small.
+ *
+ * Palette comes from brand/BRAND.txt. Those hex values are eyedropper
+ * estimates off the shared logo artwork and are NOT yet confirmed
+ * against the source file. Update here and they update everywhere.
+ */
+
+/* ══ Tokens ══════════════════════════════════════════════════════ */
+
+:root {
+  /* Brand */
+  --navy:        #14213D;
+  --navy-700:    #1B2C50;
+  --navy-600:    #24375F;
+  --blue:        #1E6BF1;
+  --blue-600:    #1A5FD6;
+  --blue-100:    #E6EEFE;
+
+  /* Functional — proposed in BRAND.txt, not yet approved */
+  --red:         #DC2626;
+  --amber:       #F59E0B;
+  --green:       #16A34A;
+
+  /* Surfaces */
+  --bg:          #F4F6F8;
+  --surface:     #FFFFFF;
+  --surface-alt: #FAFBFC;
+  --border:      #E3E7EC;
+  --border-soft: #EEF1F4;
+
+  /* Text */
+  --text:        #14213D;
+  --text-muted:  #667085;
+  --text-faint:  #98A2B3;
+  --on-dark:     #FFFFFF;
+  --on-dark-dim: rgba(255, 255, 255, .72);
+
+  /* Type */
+  --font-head: 'Poppins', 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  /* Shape */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 33, 61, .06);
+  --shadow-md: 0 4px 16px rgba(20, 33, 61, .08);
+  --shadow-lg: 0 18px 48px rgba(20, 33, 61, .14);
+
+  --ring: 0 0 0 3px rgba(30, 107, 241, .22);
+}
+
+/* Dark theme. Only tokens are redefined — no component rule below this
+ * point needs to know a theme exists. */
+:root[data-theme="dark"] {
+  --bg:          #0D1526;
+  --surface:     #131E33;
+  --surface-alt: #18243C;
+  --border:      #263449;
+  --border-soft: #1E2B41;
+
+  --text:        #EAF0F8;
+  --text-muted:  #93A2B8;
+  --text-faint:  #6B7C94;
+
+  --blue-100:    #16294D;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, .35);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, .5);
+}
+
+/* Follow the OS when the user has expressed no preference. The :not()
+ * guard is what stops this from overriding an explicit light choice. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:          #0D1526;
+    --surface:     #131E33;
+    --surface-alt: #18243C;
+    --border:      #263449;
+    --border-soft: #1E2B41;
+
+    --text:        #EAF0F8;
+    --text-muted:  #93A2B8;
+    --text-faint:  #6B7C94;
+
+    --blue-100:    #16294D;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, .35);
+    --shadow-lg: 0 18px 48px rgba(0, 0, 0, .5);
+  }
+}
+
+
+/* ══ Reset ═══════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-head);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -.01em;
+}
+
+img, svg { display: block; max-width: 100%; }
+
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+
+/* ══ Focus ═══════════════════════════════════════════════════════ */
+
+/* :focus-visible only, so pointer users never see a ring but keyboard
+ * users always do. Never remove this — an admin auditing a leak at 2am
+ * is exactly the person who will be driving by keyboard. */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+
+/* ══ Form controls ═══════════════════════════════════════════════ */
+
+.field { display: grid; gap: 6px; }
+
+.field__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.input {
+  width: 100%;
+  padding: 11px 13px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.input::placeholder { color: var(--text-faint); }
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: var(--ring);
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--red);
+}
+
+.input:disabled {
+  background: var(--surface-alt);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.field__error {
+  font-size: 12.5px;
+  color: var(--red);
+  min-height: 1em;
+}
+
+
+/* ══ Buttons ═════════════════════════════════════════════════════ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background .15s, transform .06s, opacity .15s;
+}
+
+.btn:active { transform: translateY(1px); }
+
+.btn--primary {
+  background: var(--blue);
+  color: #fff;
+}
+.btn--primary:hover:not(:disabled) { background: var(--blue-600); }
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.btn--ghost:hover:not(:disabled) { background: var(--surface-alt); }
+
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn--block { width: 100%; }
+
+
+/* ══ Alert ═══════════════════════════════════════════════════════ */
+
+.alert {
+  display: flex;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: var(--r-sm);
+  font-size: 13.5px;
+  border: 1px solid transparent;
+}
+
+.alert--error {
+  background: color-mix(in srgb, var(--red) 8%, transparent);
+  border-color: color-mix(in srgb, var(--red) 28%, transparent);
+  color: var(--red);
+}
+
+.alert--info {
+  background: var(--blue-100);
+  border-color: color-mix(in srgb, var(--blue) 22%, transparent);
+  color: var(--blue);
+}
+
+.alert[hidden] { display: none; }
+
+
+/* ══ Utility ═════════════════════════════════════════════════════ */
+
+/* Visible to screen readers, invisible on screen. Used for live regions
+ * that announce errors without duplicating them visually. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

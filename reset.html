@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Datafort · Set a new password</title>
+  <link rel="icon" href="brand/datafort-icon.svg" type="image/svg+xml">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css?v=1">
+  <link rel="stylesheet" href="login.css?v=1">
+  <script src="theme.js?v=1"></script>
+
+  <style>
+    /* Strength meter — only this page needs it. */
+    .strength { display: grid; gap: 6px; }
+    .strength__bars { display: flex; gap: 4px; }
+    .strength__bars i {
+      height: 4px; flex: 1;
+      border-radius: 999px;
+      background: var(--border-soft);
+      transition: background .18s;
+    }
+    .strength__label { font-size: 12px; color: var(--text-muted); }
+    .rules { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 12.5px; }
+    .rules li { display: flex; gap: 7px; align-items: center; color: var(--text-faint); }
+    .rules li[data-ok="true"] { color: var(--green); }
+    .rules .mark { width: 13px; flex: none; text-align: center; }
+  </style>
+</head>
+
+<body>
+
+<div class="auth">
+
+  <aside class="brandside">
+    <div class="brandside__logo">
+      <svg viewBox="0 0 120 128" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M12 18 h22 v14 h12 V18 h28 v14 h12 V18 h22 v66 l-48 38 -48 -38 Z M30 40 v36 l30 24 30 -24 V40 Z"/>
+        <path d="M38 46 L60 57 L82 46 L82 57 L60 68 L38 57 Z"/>
+        <path d="M38 60 L60 71 L82 60 L82 71 L60 82 L38 71 Z"/>
+        <path d="M38 74 L60 85 L82 74 L82 85 L60 96 L38 85 Z"/>
+      </svg>
+      <span class="word">DATAFORT</span>
+    </div>
+
+    <div class="brandside__body">
+      <h2 class="brandside__tag">One password<span>guards the whole list.</span></h2>
+      <p class="brandside__blurb">
+        Your account reaches real customer data that your company paid for.
+        Pick something you do not use anywhere else.
+      </p>
+
+      <ul class="pointlist">
+        <li><span class="tick" aria-hidden="true">✓</span>Every other session is signed out when you save this</li>
+        <li><span class="tick" aria-hidden="true">✓</span>The change is recorded in the audit log</li>
+        <li><span class="tick" aria-hidden="true">✓</span>Your administrator is notified</li>
+      </ul>
+    </div>
+
+    <div class="brandside__foot">Datafort · Secure lead management</div>
+  </aside>
+
+
+  <main class="pane">
+
+    <div class="pane__top">
+      <span class="eyebrow">New password</span>
+      <button type="button" id="themeBtn" class="themebtn" aria-label="Switch between light and dark theme">
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+        </svg>
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+        </svg>
+      </button>
+    </div>
+
+    <form class="form" id="newPwForm" novalidate>
+      <div class="form__head">
+        <h1>Set a new password</h1>
+        <p id="forWho">Choose a password you have not used before.</p>
+      </div>
+
+      <div class="alert alert--error" id="formAlert" role="alert" hidden></div>
+
+      <div class="field">
+        <label class="field__label" for="pw1">New password</label>
+        <div class="pw">
+          <input class="input" type="password" id="pw1" autocomplete="new-password" required>
+          <button type="button" class="pw__toggle" id="pwToggle" aria-pressed="false" aria-label="Show password">
+            <svg class="i-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            <svg class="i-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9.9 5.2A9.8 9.8 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.2 6.2A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4-.8"/><path d="M3 3l18 18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="strength">
+          <div class="strength__bars" aria-hidden="true">
+            <i></i><i></i><i></i><i></i>
+          </div>
+          <div class="strength__label" id="strengthLabel">Strength — start typing</div>
+        </div>
+      </div>
+
+      <ul class="rules" id="rules">
+        <li data-rule="len"><span class="mark">○</span>At least 12 characters</li>
+        <li data-rule="case"><span class="mark">○</span>Upper and lower case</li>
+        <li data-rule="num"><span class="mark">○</span>A number</li>
+        <li data-rule="sym"><span class="mark">○</span>A symbol</li>
+      </ul>
+
+      <div class="field">
+        <label class="field__label" for="pw2">Confirm password</label>
+        <input class="input" type="password" id="pw2" autocomplete="new-password" required aria-describedby="pw2Err">
+        <span class="field__error" id="pw2Err"></span>
+      </div>
+
+      <button type="submit" class="btn btn--primary btn--block" id="submitBtn" data-busy="false">
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="btn__label">Save password</span>
+      </button>
+    </form>
+
+    <div class="pane__foot">
+      <p class="monitor">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span>Saving signs out every other device using this account.</span>
+      </p>
+    </div>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var pw1 = document.getElementById('pw1');
+  var pw2 = document.getElementById('pw2');
+  var pw2Err = document.getElementById('pw2Err');
+  var bars = document.querySelectorAll('.strength__bars i');
+  var label = document.getElementById('strengthLabel');
+  var rulesEl = document.getElementById('rules');
+  var alertBox = document.getElementById('formAlert');
+  var btn = document.getElementById('submitBtn');
+
+  var token = new URLSearchParams(location.search).get('token');
+
+  /* No token means the link was not the one we emailed. Fail here rather
+   * than letting someone fill in the form and discover it at submit. */
+  if (!token) {
+    alertBox.hidden = false;
+    alertBox.textContent =
+      'This reset link is missing or malformed. Request a new one from the sign-in page.';
+    document.getElementById('newPwForm').querySelectorAll('input, button[type="submit"]')
+      .forEach(function (el) { el.disabled = true; });
+  }
+
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    window.DatafortTheme.toggle();
+  });
+
+  document.getElementById('pwToggle').addEventListener('click', function () {
+    var showing = this.getAttribute('aria-pressed') === 'true';
+    this.setAttribute('aria-pressed', String(!showing));
+    this.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    pw1.type = showing ? 'password' : 'text';
+    pw1.focus();
+  });
+
+  /* Rule-count scoring, not entropy maths. It is honest about what it
+   * measures — whether the password meets policy — rather than implying
+   * a security guarantee the meter cannot make. */
+  var COLORS = ['var(--red)', 'var(--amber)', 'var(--amber)', 'var(--green)'];
+  var WORDS  = ['Too weak', 'Weak', 'Acceptable', 'Strong'];
+
+  function score(v) {
+    var checks = {
+      len:  v.length >= 12,
+      case: /[a-z]/.test(v) && /[A-Z]/.test(v),
+      num:  /\d/.test(v),
+      sym:  /[^\w\s]/.test(v)
+    };
+
+    rulesEl.querySelectorAll('[data-rule]').forEach(function (li) {
+      var ok = checks[li.dataset.rule];
+      li.dataset.ok = String(!!ok);
+      li.querySelector('.mark').textContent = ok ? '✓' : '○';
+    });
+
+    return Object.keys(checks).filter(function (k) { return checks[k]; }).length;
+  }
+
+  pw1.addEventListener('input', function () {
+    var n = score(pw1.value);
+
+    bars.forEach(function (b, i) {
+      b.style.background = i < n && pw1.value ? COLORS[n - 1] : 'var(--border-soft)';
+    });
+
+    label.textContent = pw1.value
+      ? 'Strength — ' + WORDS[Math.max(0, n - 1)]
+      : 'Strength — start typing';
+
+    if (pw2.value) checkMatch();
+  });
+
+  function checkMatch() {
+    var same = pw1.value === pw2.value;
+    pw2Err.textContent = same ? '' : 'Passwords do not match.';
+    pw2.setAttribute('aria-invalid', String(!same));
+    return same;
+  }
+
+  pw2.addEventListener('input', checkMatch);
+
+  document.getElementById('newPwForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    alertBox.hidden = true;
+
+    if (score(pw1.value) < 4) {
+      alertBox.hidden = false;
+      alertBox.textContent = 'Your password does not meet all four requirements yet.';
+      pw1.focus();
+      return;
+    }
+    if (!checkMatch()) { pw2.focus(); return; }
+
+    btn.dataset.busy = 'true';
+    btn.disabled = true;
+    btn.querySelector('.btn__label').textContent = 'Saving…';
+
+    fetch('api/auth-reset.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ token: token, password: pw1.value })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) { location.href = 'login.html?reset=1'; return; }
+        throw new Error('failed');
+      })
+      .catch(function () {
+        btn.dataset.busy = 'false';
+        btn.disabled = false;
+        btn.querySelector('.btn__label').textContent = 'Save password';
+        alertBox.hidden = false;
+        alertBox.textContent =
+          'Could not save the password — the API is not connected yet, or the link has expired.';
+      });
+  });
+})();
+</script>
+</body>
+</html>

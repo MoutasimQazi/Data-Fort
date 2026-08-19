@@ -1,0 +1,72 @@
+# api/.htaccess — Datafort API directory.
+#
+# NOTE ON WHAT .htaccess CAN AND CANNOT DO HERE
+#
+# The rules below are a second line, not the mTLS enforcement itself.
+# .htaccess runs after Apache has already accepted the TLS connection,
+# so it cannot decide whether a client certificate was required — that
+# decision belongs to SSLVerifyClient in the vhost, and nowhere else.
+#
+# See apache/datafort-mtls.conf for the configuration that actually
+# does the work, and section 24 of the requirements.
+
+
+# ── Files that must never be fetched directly ──
+# config.php holds live database credentials. db.php, auth.php and
+# device.php are libraries; requesting them directly runs them with no
+# context and no guard.
+<FilesMatch "^(config|config\.sample|db|auth|device)\.php$">
+    Require all denied
+</FilesMatch>
+
+# Schema files describe the live database.
+<FilesMatch "\.(sql|md|log|bak|save|swp)$">
+    Require all denied
+</FilesMatch>
+
+# Editor and VCS leftovers.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+
+# ── Reject requests where the client certificate did not verify ──
+#
+# Only meaningful once SSLVerifyClient is set in the vhost. When mTLS is
+# NOT configured, SSL_CLIENT_VERIFY is empty and this rule would block
+# every request — including the login page — which is why it is commented
+# out until the certificate infrastructure is actually live.
+#
+# Turn this on at the same time as switching tenants.device_enforcement
+# to 'enforce', not before.
+#
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{SSL:SSL_CLIENT_VERIFY} !=SUCCESS
+#     RewriteRule ^ - [F,L]
+# </IfModule>
+
+
+# ── Force HTTPS ──
+# Device certificates are only presented over TLS. A plain-HTTP request
+# has no certificate and no confidentiality; redirect rather than serve.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} !=on
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+
+# ── Response headers ──
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "same-origin"
+    # API responses are per-user and often carry masked contact data.
+    # Nothing here is ever cacheable by a proxy.
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, private"
+</IfModule>
+
+
+# ── Directory listing off ──
+Options -Indexes

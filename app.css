@@ -1,0 +1,793 @@
+/* app.css — the signed-in shell.
+ *
+ * Loaded on every page behind the login. Depends on style.css for tokens.
+ * Layout is a fixed sidebar plus a scrolling main column; the sidebar
+ * collapses to a slide-over below 900px.
+ */
+
+/* ══ Shell ═══════════════════════════════════════════════════════ */
+
+.shell {
+  display: grid;
+  grid-template-columns: 244px minmax(0, 1fr);
+  min-height: 100dvh;
+}
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+}
+
+
+/* ══ Sidebar ═════════════════════════════════════════════════════ */
+
+.side {
+  background: var(--navy);
+  color: var(--on-dark);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px 14px;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+}
+
+.side__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 18px;
+}
+.side__brand svg { width: 27px; height: auto; color: #fff; flex: none; }
+.side__brand .word {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 1px;
+}
+
+.side__label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .38);
+  padding: 14px 10px 6px;
+}
+
+.navlink {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  color: var(--on-dark-dim);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background .13s, color .13s;
+}
+.navlink:hover { background: rgba(255, 255, 255, .07); color: #fff; text-decoration: none; }
+.navlink svg { width: 17px; height: 17px; flex: none; opacity: .85; }
+
+.navlink[aria-current="page"] {
+  background: var(--blue);
+  color: #fff;
+}
+.navlink[aria-current="page"] svg { opacity: 1; }
+
+/* Count bubble on the right of a nav item — unread alerts, pending imports. */
+.navlink .count {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.side__foot {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, .1);
+}
+
+.whoami {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--r-sm);
+  width: 100%;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.whoami:hover { background: rgba(255, 255, 255, .07); }
+
+.avatar {
+  flex: none;
+  width: 32px; height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.whoami__name { font-size: 13.5px; font-weight: 500; line-height: 1.3; }
+.whoami__role { font-size: 11.5px; color: rgba(255, 255, 255, .5); }
+
+/* Mobile: sidebar becomes a slide-over. */
+@media (max-width: 900px) {
+  .side {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 260px;
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+  }
+  .side[data-open="true"] { transform: none; }
+
+  .scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 18, 34, .5);
+    z-index: 55;
+  }
+  .scrim[hidden] { display: none; }
+}
+
+
+/* ══ Main column ═════════════════════════════════════════════════ */
+
+.main { display: flex; flex-direction: column; min-width: 0; }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 28px;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+@media (max-width: 900px) { .topbar { padding: 12px 16px; } }
+
+.topbar h1 { font-size: 19px; }
+.topbar__sub { font-size: 13px; color: var(--text-muted); }
+.topbar__spacer { margin-left: auto; }
+
+.iconbtn {
+  flex: none;
+  width: 34px; height: 34px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .14s, color .14s;
+}
+.iconbtn:hover { background: var(--surface-alt); color: var(--text); }
+.iconbtn svg { width: 17px; height: 17px; }
+
+.menubtn { display: none; }
+@media (max-width: 900px) { .menubtn { display: grid; } }
+
+.content {
+  padding: 26px 28px 60px;
+  display: grid;
+  gap: 22px;
+  align-content: start;
+}
+@media (max-width: 900px) { .content { padding: 18px 16px 48px; } }
+
+
+/* ══ Cards ═══════════════════════════════════════════════════════ */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.card__head h2 { font-size: 15px; }
+.card__head .sub { font-size: 12.5px; color: var(--text-muted); }
+.card__head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.card__body { padding: 20px; }
+.card__body--flush { padding: 0; }
+
+
+/* ══ Stat tiles ══════════════════════════════════════════════════ */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 16px 18px;
+  display: grid;
+  gap: 5px;
+}
+
+.tile__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* tabular-nums so a counter that ticks does not shift its own width. */
+.tile__value {
+  font-family: var(--font-head);
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile__note { font-size: 12px; color: var(--text-faint); }
+
+.delta { font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; }
+.delta--up   { color: var(--green); }
+.delta--down { color: var(--red); }
+.delta--flat { color: var(--text-faint); }
+
+
+/* ══ Tables ══════════════════════════════════════════════════════ */
+
+.tablewrap { overflow-x: auto; }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.table th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+  position: sticky;
+  top: 0;
+}
+
+.table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+
+.table tbody tr:hover { background: var(--surface-alt); }
+.table tbody tr:last-child td { border-bottom: 0; }
+
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.table .shrink { width: 1%; }
+
+.cellstack { display: grid; gap: 1px; }
+.cellstack .sub { font-size: 12px; color: var(--text-muted); }
+
+
+/* ══ Badges ══════════════════════════════════════════════════════ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* Status colours are reserved. They never double as a chart series. */
+.badge--new      { background: var(--blue-100);                              color: var(--blue);  }
+.badge--working  { background: color-mix(in srgb, var(--amber) 13%, transparent); color: #B45309; }
+.badge--won      { background: color-mix(in srgb, var(--green) 13%, transparent); color: var(--green); }
+.badge--lost     { background: color-mix(in srgb, var(--red) 11%, transparent);   color: var(--red); }
+.badge--idle     { background: var(--surface-alt); color: var(--text-muted); border-color: var(--border); }
+
+:root[data-theme="dark"] .badge--working { color: #FBBF24; }
+
+.badge--plain::before { display: none; }
+
+
+/* ══ Masked / revealed values ════════════════════════════════════ */
+
+/* The masked state is the DEFAULT rendering of a contact field. The real
+ * value is never in the DOM until the server sends it, so "inspect
+ * element" on a masked cell yields the mask, not the number. */
+.masked {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  letter-spacing: .4px;
+}
+
+.reveal {
+  display: inline-grid;
+  place-items: center;
+  width: 24px; height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: border-color .14s, color .14s, background .14s;
+}
+.reveal:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); background: var(--blue-100); }
+.reveal:disabled { opacity: .45; cursor: not-allowed; }
+.reveal svg { width: 13px; height: 13px; }
+
+/* Once revealed the value arrives as a server-rendered image with the
+ * watermark baked into the same pixels — see requirements 7.3. There is
+ * no text node here to select or copy. */
+.revealed img {
+  height: 19px;
+  vertical-align: middle;
+  border-radius: 3px;
+}
+
+.revealed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.revealed__ttl {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* ══ Quota meter ═════════════════════════════════════════════════ */
+
+.quota {
+  display: grid;
+  gap: 7px;
+}
+
+.quota__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.quota__count { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.meter {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-soft);
+  overflow: hidden;
+}
+.meter__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--blue);
+  transition: width .3s ease;
+}
+.meter__fill[data-level="warn"]   { background: var(--amber); }
+.meter__fill[data-level="danger"] { background: var(--red); }
+
+
+/* ══ Toolbar / filters ═══════════════════════════════════════════ */
+
+/* One row above the content. Filters never sit between the charts. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+.toolbar .grow { flex: 1 1 200px; min-width: 0; }
+.toolbar .push { margin-left: auto; }
+
+.search { position: relative; }
+.search svg {
+  position: absolute;
+  left: 11px; top: 50%;
+  transform: translateY(-50%);
+  width: 15px; height: 15px;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.search .input { padding-left: 34px; }
+
+.select {
+  padding: 10px 30px 10px 12px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  background: var(--surface)
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>")
+    no-repeat right 10px center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  appearance: none;
+  cursor: pointer;
+}
+.select:focus-visible { border-color: var(--blue); box-shadow: var(--ring); outline: none; }
+
+.btn--sm { padding: 9px 14px; font-size: 13.5px; }
+
+
+/* ══ Selection bar ═══════════════════════════════════════════════ */
+
+/* Appears when rows are ticked. Sits above the table rather than floating,
+ * so it never covers the rows the admin is deciding about. */
+.selbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  background: var(--blue-100);
+  border: 1px solid color-mix(in srgb, var(--blue) 24%, transparent);
+  border-radius: var(--r-md);
+  font-size: 13.5px;
+}
+.selbar[hidden] { display: none; }
+.selbar strong { font-variant-numeric: tabular-nums; }
+
+
+/* ══ Empty state ═════════════════════════════════════════════════ */
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 54px 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.empty svg { width: 34px; height: 34px; color: var(--text-faint); }
+.empty h3 { font-size: 15px; color: var(--text); }
+.empty p { margin: 0; font-size: 13.5px; max-width: 42ch; }
+
+
+/* ══ Modal ═══════════════════════════════════════════════════════ */
+
+.modal[hidden] { display: none; }
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(10, 18, 34, .45);
+}
+
+.modal__box {
+  width: 100%;
+  max-width: 460px;
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.modal__box--wide { max-width: 660px; }
+
+.modal__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px 14px;
+}
+.modal__head h2 { font-size: 16px; }
+.modal__head .iconbtn { margin-left: auto; border: 0; }
+
+.modal__body { padding: 0 20px 18px; display: grid; gap: 14px; }
+
+.modal__foot {
+  display: flex;
+  gap: 9px;
+  justify-content: flex-end;
+  padding: 14px 20px;
+  background: var(--surface-alt);
+  border-top: 1px solid var(--border-soft);
+}
+
+
+/* ══ Toast ═══════════════════════════════════════════════════════ */
+
+.toasts {
+  position: fixed;
+  right: 18px; bottom: 18px;
+  z-index: 90;
+  display: grid;
+  gap: 9px;
+  max-width: 340px;
+}
+
+.toast {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: var(--navy);
+  color: #fff;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 13.5px;
+  animation: toastin .22s ease;
+}
+.toast svg { flex: none; width: 16px; height: 16px; margin-top: 1px; }
+.toast--error { background: var(--red); }
+.toast--ok    { background: var(--green); }
+
+@keyframes toastin {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+
+/* ══ Charts ══════════════════════════════════════════════════════ */
+
+.chartgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.figure { display: grid; gap: 10px; }
+.figure figcaption { font-size: 12.5px; color: var(--text-muted); }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i {
+  width: 9px; height: 9px;
+  border-radius: 2px;
+  background: currentColor;
+  flex: none;
+}
+
+/* Tooltip for the inline-SVG charts. Positioned by charts.js. */
+.charttip {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  padding: 8px 10px;
+  background: var(--navy);
+  color: #fff;
+  border-radius: var(--r-sm);
+  font-size: 12.5px;
+  line-height: 1.45;
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+}
+.charttip[hidden] { display: none; }
+.charttip b { font-variant-numeric: tabular-nums; }
+
+/* The table under every chart. Identity is never carried by colour
+ * alone, so each figure has a readable fallback. */
+.figtable summary {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 0;
+}
+.figtable[open] summary { margin-bottom: 8px; }
+
+
+/* ══ Anomaly feed ════════════════════════════════════════════════ */
+
+.feed { display: grid; }
+
+.feed__item {
+  display: flex;
+  gap: 12px;
+  padding: 13px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.feed__item:last-child { border-bottom: 0; }
+
+.feed__dot {
+  flex: none;
+  width: 30px; height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+}
+.feed__dot svg { width: 15px; height: 15px; }
+.feed__dot--red   { background: color-mix(in srgb, var(--red) 12%, transparent);   color: var(--red); }
+.feed__dot--amber { background: color-mix(in srgb, var(--amber) 14%, transparent); color: #B45309; }
+
+.feed__text { min-width: 0; font-size: 13.5px; line-height: 1.5; }
+.feed__meta { font-size: 12px; color: var(--text-faint); }
+
+
+/* ══ Mock-data banner ════════════════════════════════════════════ */
+
+/* Every page carries this until the PHP API is wired. It is deliberately
+ * loud — a demo that looks live is how people ship a demo by accident. */
+.mockbar {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 9px 28px;
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--amber) 34%, transparent);
+  font-size: 12.5px;
+  color: #92400E;
+}
+:root[data-theme="dark"] .mockbar { color: #FCD34D; }
+.mockbar svg { width: 15px; height: 15px; flex: none; }
+@media (max-width: 900px) { .mockbar { padding: 9px 16px; } }
+
+
+/* ══ Stepper ═════════════════════════════════════════════════════ */
+
+/* Used by the import wizard. Steps are numbered and stateful rather
+ * than a plain progress bar: an admin importing a purchased list needs
+ * to know which stage failed, not just that something did. */
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+  align-items: center;
+}
+
+.step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.step__n {
+  width: 20px; height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--border-soft);
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  flex: none;
+}
+
+.step[data-state="active"] { background: var(--blue-100); color: var(--blue); }
+.step[data-state="active"] .step__n { background: var(--blue); color: #fff; }
+
+.step[data-state="done"] { color: var(--green); }
+.step[data-state="done"] .step__n {
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+  color: var(--green);
+}
+
+.steps .sep { color: var(--text-faint); opacity: .5; }
+
+.panel[hidden] { display: none; }
+
+
+/* ══ Dropzone ════════════════════════════════════════════════════ */
+
+.drop {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 44px 24px;
+  text-align: center;
+  border: 2px dashed var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface-alt);
+  transition: border-color .15s, background .15s;
+  cursor: pointer;
+}
+.drop:hover, .drop[data-over="true"] {
+  border-color: var(--blue);
+  background: var(--blue-100);
+}
+.drop svg { width: 30px; height: 30px; color: var(--text-faint); }
+.drop strong { font-family: var(--font-head); font-size: 15px; }
+.drop span { font-size: 13px; color: var(--text-muted); }
+
+
+/* ══ Column mapper ═══════════════════════════════════════════════ */
+
+.maprow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 26px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.maprow:last-child { border-bottom: 0; }
+.maprow .from { font-size: 13.5px; min-width: 0; }
+.maprow .from .sub { font-size: 12px; color: var(--text-faint); }
+.maprow .arrow { color: var(--text-faint); text-align: center; }
+.maprow .select { width: 100%; }
+
+
+/* ══ Destroy-source step ═════════════════════════════════════════ */
+
+/* Deliberately styled as a warning rather than a form. The import is
+ * not finished until the original spreadsheet is dealt with — see
+ * requirements section 6, "Open gap to fix". */
+.destroy {
+  border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent);
+  background: color-mix(in srgb, var(--amber) 8%, transparent);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+.destroy h3 { font-size: 15px; }
+.destroy p { margin: 0; font-size: 13.5px; color: var(--text-muted); line-height: 1.6; }
+
+.confirmrow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.confirmrow input { margin-top: 3px; accent-color: var(--blue); width: 16px; height: 16px; flex: none; }

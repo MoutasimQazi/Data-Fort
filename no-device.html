@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Datafort · Device not authorised</title>
+  <link rel="icon" href="brand/datafort-icon.svg" type="image/svg+xml">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css?v=1">
+  <script src="theme.js?v=1"></script>
+
+  <style>
+    .wrap {
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: linear-gradient(155deg, #101B33 0%, #14213D 45%, #16264C 100%);
+    }
+    .box {
+      width: 100%;
+      max-width: 520px;
+      background: var(--surface);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+    .box__top {
+      padding: 30px 32px 22px;
+      display: grid;
+      gap: 14px;
+      justify-items: start;
+    }
+    .shieldmark {
+      width: 46px; height: 46px;
+      display: grid; place-items: center;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--red) 12%, transparent);
+      color: var(--red);
+    }
+    .shieldmark svg { width: 24px; height: 24px; }
+    .box h1 { font-size: 21px; }
+    .box p { margin: 0; font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+
+    .facts {
+      margin: 4px 0 0;
+      padding: 14px 16px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--r-md);
+      font-size: 12.5px;
+      display: grid;
+      gap: 6px;
+      width: 100%;
+    }
+    .facts div { display: flex; justify-content: space-between; gap: 16px; }
+    .facts span:first-child { color: var(--text-faint); }
+    .facts span:last-child { font-family: ui-monospace, monospace; text-align: right; word-break: break-all; }
+
+    .box__foot {
+      padding: 16px 32px 22px;
+      background: var(--surface-alt);
+      border-top: 1px solid var(--border-soft);
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="wrap">
+  <div class="box">
+    <div class="box__top">
+
+      <span class="shieldmark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M4.2 4.2l15.6 15.6"/>
+        </svg>
+      </span>
+
+      <h1>This device is not authorised</h1>
+
+      <p id="reason">
+        Datafort can only be opened from a company laptop that carries a valid
+        device certificate. This computer did not present one.
+      </p>
+
+      <!-- Deliberately shows the certificate facts, not just a refusal.
+           An employee whose enrolment silently failed needs something to
+           read out to IT, and none of this is secret — the serial is
+           presented by the browser on every connection anyway. -->
+      <div class="facts" id="facts"></div>
+
+      <p>
+        If this <em>is</em> your company laptop, the certificate is missing,
+        expired, or has not been activated yet. Your IT administrator can
+        check the device register and tell you which.
+      </p>
+
+    </div>
+
+    <div class="box__foot">
+      Access from personal computers, phones and shared machines is blocked by
+      design. Every attempt is recorded, including this one.
+    </div>
+  </div>
+</div>
+
+<script>
+/* Populated by the server from api/*.php, which returns
+ * {device_error: "...", message: "..."} with a 403 whenever the device
+ * gate refuses. Falls back to the query string so Apache can redirect
+ * here directly with ?reason=no_certificate. */
+(function () {
+  'use strict';
+
+  var params = new URLSearchParams(location.search);
+
+  var REASONS = {
+    no_certificate:
+      'No device certificate was presented. This computer has not been enrolled, ' +
+      'or the certificate was removed from its certificate store.',
+    certificate_invalid:
+      'A certificate was presented but it was not issued by the company certificate ' +
+      'authority, or its chain is incomplete.',
+    certificate_expired:
+      'The device certificate on this laptop has expired. IT needs to issue a new one.',
+    unknown_serial:
+      'The certificate is valid but this laptop is not in the device register. ' +
+      'Ask an administrator to register it.',
+    cn_mismatch:
+      'The certificate identity does not match the registered device. Contact IT.',
+    device_pending:
+      'This laptop is registered but has not been activated yet. An administrator ' +
+      'needs to approve it.',
+    device_disabled:
+      'This laptop has been temporarily disabled by an administrator.',
+    device_revoked:
+      'This laptop has been revoked and can no longer access Datafort.',
+    device_expired:
+      'The recorded certificate expiry for this laptop has passed.',
+    wrong_tenant:
+      'This laptop is registered to a different organisation.',
+    device_wrong_employee:
+      'This laptop is assigned to a different employee. Sign in on your own machine.'
+  };
+
+  var reason = params.get('reason') || '';
+  if (REASONS[reason]) {
+    document.getElementById('reason').textContent = REASONS[reason];
+  }
+
+  /* The serial and CN come from the query string because this page is
+   * static — Apache or the API puts them there. They are shown so the
+   * employee can quote them; they are not trusted for anything. */
+  var rows = [
+    ['Device',   params.get('cn')     || 'Not identified'],
+    ['Serial',   params.get('serial') || 'None presented'],
+    ['Result',   reason || 'no_certificate'],
+    ['Time',     new Date().toLocaleString()]
+  ];
+
+  document.getElementById('facts').innerHTML = rows.map(function (r) {
+    var v = String(r[1]).replace(/[<>&"]/g, '');
+    return '<div><span>' + r[0] + '</span><span>' + v + '</span></div>';
+  }).join('');
+})();
+</script>
+</body>
+</html>
