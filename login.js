@@ -173,7 +173,18 @@
       })
       .then(function (r) {
         if (r.ok && r.data.redirect) {
-          window.location.assign(r.data.redirect);
+          /* api.js appends ?next= when it bounces an expired session
+           * here, so a rep who was mid-task lands back where they were.
+           * Only same-page relative names are accepted — anything with a
+           * slash, a scheme or a protocol-relative prefix is discarded,
+           * or this parameter becomes an open redirect straight off a
+           * page people are trained to trust. */
+          var next = new URLSearchParams(location.search).get('next');
+          if (next && /^[a-z0-9_-]+\.html$/i.test(next)) {
+            window.location.assign(next);
+          } else {
+            window.location.assign(r.data.redirect);
+          }
           return;
         }
 
@@ -193,15 +204,26 @@
         /* One generic message for bad email, bad password, and unknown
          * account. Distinguishing them tells an attacker which addresses
          * are real, which on this product hands them a staff list for the
-         * target company. The server must be equally vague. */
-        if (r.status === 429) {
+         * target company. The server must be equally vague.
+         *
+         * But a SERVER fault is not a credential fault, and collapsing
+         * the two is how "the database is unreachable" gets reported to
+         * the user as "your password is wrong" — sending them off to
+         * reset a password that was never the problem. 5xx responses
+         * carry .error rather than .message, so they are surfaced
+         * separately and verbatim. */
+        if (r.status >= 500) {
+          showAlert((r.data.error || 'The server failed to handle the request.') +
+            ' This is a server fault, not a wrong password — check that ' +
+            'api/config.php exists on the server and the schema is loaded.');
+        } else if (r.status === 429) {
           showAlert(r.data.message ||
             'Too many attempts. Try again shortly — your administrator has been notified.');
         } else if (r.status === 423) {
           showAlert(r.data.message ||
             'This account is locked. Contact your administrator.');
         } else {
-          showAlert(r.data.message || 'Email or password is incorrect.');
+          showAlert(r.data.message || r.data.error || 'Email or password is incorrect.');
         }
 
         password.value = '';

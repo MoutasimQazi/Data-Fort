@@ -10,6 +10,12 @@
  */
 
 return [
+
+    // Surfaces the raw MySQL error to the browser on a failed
+    // connection. Invaluable during setup, an information leak
+    // afterwards. Ships false.
+    'debug' => false,
+
     // ── Database ──
     'db' => [
         'host' => 'localhost',

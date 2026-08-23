@@ -21,7 +21,7 @@
 /* ══ Sidebar ═════════════════════════════════════════════════════ */
 
 .side {
-  background: var(--navy);
+  background: var(--ink-700);
   color: var(--on-dark);
   display: flex;
   flex-direction: column;
@@ -33,13 +33,18 @@
   overflow-y: auto;
 }
 
+/* Company mark + product name. The artwork in brand/logo.png carries a
+ * FOLKSFIRST LABS wordmark; that is the company, not this product, so
+ * only the hexagon is used here and the product name is set as live
+ * text beside it. -mark-light is the white-knockout variant, since the
+ * mark's inner figure is near-black and would vanish on the chrome. */
 .side__brand {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 4px 8px 18px;
 }
-.side__brand svg { width: 27px; height: auto; color: #fff; flex: none; }
+.side__brand img { width: 30px; height: auto; flex: none; }
 .side__brand .word {
   font-family: var(--font-head);
   font-weight: 700;
@@ -72,7 +77,7 @@
 .navlink svg { width: 17px; height: 17px; flex: none; opacity: .85; }
 
 .navlink[aria-current="page"] {
-  background: var(--blue);
+  background: var(--brand-on-ink);
   color: #fff;
 }
 .navlink[aria-current="page"] svg { opacity: 1; }
@@ -83,11 +88,17 @@
   min-width: 20px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--red);
+  background: var(--brand-on-ink);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
   text-align: center;
+}
+
+/* On the active row the bubble would be red-on-red, so invert it. */
+.navlink[aria-current="page"] .count {
+  background: #fff;
+  color: var(--brand-on-ink);
 }
 
 .side__foot {
@@ -118,7 +129,7 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: var(--blue);
+  background: var(--brand);
   color: #fff;
   font-size: 12.5px;
   font-weight: 600;
@@ -126,6 +137,33 @@
 
 .whoami__name { font-size: 13.5px; font-weight: 500; line-height: 1.3; }
 .whoami__role { font-size: 11.5px; color: rgba(255, 255, 255, .5); }
+
+/* Sign out sits beside the account button rather than being the whole
+ * footer's click target. Deliberately small and deliberately separate:
+ * the most destructive control on the page should not be the easiest
+ * one to hit by accident. */
+.side__foot { position: relative; }
+
+.signout {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px; height: 30px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-sm);
+  color: rgba(255, 255, 255, .45);
+  cursor: pointer;
+  transition: background .14s, color .14s;
+}
+.signout:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+.signout svg { width: 16px; height: 16px; }
+
+/* Keep the name clear of the button. */
+.side__foot .whoami { padding-right: 38px; }
 
 /* Mobile: sidebar becomes a slide-over. */
 @media (max-width: 900px) {
@@ -160,7 +198,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 28px;
+  padding: 14px 20px;
   background: color-mix(in srgb, var(--bg) 86%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
@@ -191,7 +229,7 @@
 @media (max-width: 900px) { .menubtn { display: grid; } }
 
 .content {
-  padding: 26px 28px 60px;
+  padding: 26px 20px 60px;
   display: grid;
   gap: 22px;
   align-content: start;
@@ -206,6 +244,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 .card__head {
@@ -306,6 +345,107 @@
 .cellstack { display: grid; gap: 1px; }
 .cellstack .sub { font-size: 12px; color: var(--text-muted); }
 
+/* My Leads has enough columns to overflow when long names or email
+ * addresses determine the table's natural width. Keep the desktop table
+ * inside the panel, and let the content wrap instead of creating a second
+ * page-wide scrollbar. */
+.leads-table {
+  table-layout: fixed;
+  white-space: normal;
+}
+.leads-table th,
+.leads-table td {
+  overflow-wrap: anywhere;
+}
+.leads-table th:nth-child(1), .leads-table td:nth-child(1) { width: 32%; }
+.leads-table th:nth-child(2), .leads-table td:nth-child(2) { width: 15%; }
+.leads-table th:nth-child(3), .leads-table td:nth-child(3) { width: 18%; }
+.leads-table th:nth-child(4), .leads-table td:nth-child(4) { width: 9%; }
+.leads-table th:nth-child(5), .leads-table td:nth-child(5) { width: 9%; }
+.leads-table th:nth-child(6), .leads-table td:nth-child(6) { width: 9%; }
+.leads-table th:nth-child(7), .leads-table td:nth-child(7) { width: 8%; }
+.table-action {
+  width: 86px !important;
+  min-width: 86px;
+  white-space: nowrap !important;
+  text-align: center;
+}
+.table-action .btn { white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .leads-table th:nth-child(4), .leads-table td:nth-child(4),
+  .leads-table th:nth-child(5), .leads-table td:nth-child(5),
+  .leads-table th:nth-child(6), .leads-table td:nth-child(6) {
+    display: none;
+  }
+
+  .leads-table th:nth-child(1), .leads-table td:nth-child(1) { width: 43%; }
+  .leads-table th:nth-child(2), .leads-table td:nth-child(2) { width: 18%; }
+  .leads-table th:nth-child(3), .leads-table td:nth-child(3) { width: 15%; }
+  .leads-table th:nth-child(7), .leads-table td:nth-child(7) { width: 24%; }
+  .leads-table th,
+  .leads-table td { padding: 10px 8px; }
+  .leads-table .table-action { width: 24% !important; min-width: 0; }
+}
+
+/* Admin lead management has eight columns, so let the table use the full
+ * panel without allowing owner/source text to force the action column thin. */
+.admin-leads-table {
+  table-layout: fixed;
+  white-space: normal;
+}
+.admin-leads-table th,
+.admin-leads-table td { overflow-wrap: anywhere; }
+.admin-leads-table th:nth-child(1), .admin-leads-table td:nth-child(1) { width: 4%; }
+.admin-leads-table th:nth-child(2), .admin-leads-table td:nth-child(2) { width: 26%; }
+.admin-leads-table th:nth-child(3), .admin-leads-table td:nth-child(3) { width: 17%; }
+.admin-leads-table th:nth-child(4), .admin-leads-table td:nth-child(4) { width: 14%; }
+.admin-leads-table th:nth-child(5), .admin-leads-table td:nth-child(5) { width: 16%; }
+.admin-leads-table th:nth-child(6), .admin-leads-table td:nth-child(6) { width: 9%; }
+.admin-leads-table th:nth-child(7), .admin-leads-table td:nth-child(7) { width: 6%; }
+.admin-leads-table th:nth-child(8), .admin-leads-table td:nth-child(8) { width: 8%; }
+
+/* The import preview is deliberately short, but uploaded values can still
+ * be very long. Wrapping keeps the wizard inside its card. */
+.import-preview-table {
+  table-layout: fixed;
+  white-space: normal;
+}
+.import-preview-table th,
+.import-preview-table td { overflow-wrap: anywhere; }
+.import-preview-table th:nth-child(1), .import-preview-table td:nth-child(1) { width: 24%; }
+.import-preview-table th:nth-child(2), .import-preview-table td:nth-child(2) { width: 24%; }
+.import-preview-table th:nth-child(3), .import-preview-table td:nth-child(3) { width: 17%; }
+.import-preview-table th:nth-child(4), .import-preview-table td:nth-child(4) { width: 20%; }
+.import-preview-table th:nth-child(5), .import-preview-table td:nth-child(5) { width: 15%; }
+
+@media (max-width: 700px) {
+  .admin-leads-table th:nth-child(4), .admin-leads-table td:nth-child(4),
+  .admin-leads-table th:nth-child(5), .admin-leads-table td:nth-child(5),
+  .admin-leads-table th:nth-child(6), .admin-leads-table td:nth-child(6),
+  .admin-leads-table th:nth-child(7), .admin-leads-table td:nth-child(7) {
+    display: none;
+  }
+
+  .admin-leads-table th:nth-child(1), .admin-leads-table td:nth-child(1) { width: 12%; }
+  .admin-leads-table th:nth-child(2), .admin-leads-table td:nth-child(2) { width: 33%; }
+  .admin-leads-table th:nth-child(3), .admin-leads-table td:nth-child(3) { width: 31%; }
+  .admin-leads-table th:nth-child(8), .admin-leads-table td:nth-child(8) { width: 24%; }
+  .admin-leads-table .table-action { width: 24% !important; min-width: 0; }
+  .admin-leads-table th,
+  .admin-leads-table td { padding: 10px 8px; }
+
+  .import-preview-table th:nth-child(5), .import-preview-table td:nth-child(5) {
+    display: none;
+  }
+  .import-preview-table th:nth-child(1), .import-preview-table td:nth-child(1) { width: 30%; }
+  .import-preview-table th:nth-child(2), .import-preview-table td:nth-child(2) { width: 28%; }
+  .import-preview-table th:nth-child(3), .import-preview-table td:nth-child(3) { width: 20%; }
+  .import-preview-table th:nth-child(4), .import-preview-table td:nth-child(4) { width: 22%; }
+  .import-preview-table th,
+  .import-preview-table td { padding: 10px 8px; }
+}
+
 
 /* ══ Badges ══════════════════════════════════════════════════════ */
 
@@ -330,7 +470,7 @@
 }
 
 /* Status colours are reserved. They never double as a chart series. */
-.badge--new      { background: var(--blue-100);                              color: var(--blue);  }
+.badge--new      { background: var(--status-new-bg);                          color: var(--status-new); }
 .badge--working  { background: color-mix(in srgb, var(--amber) 13%, transparent); color: #B45309; }
 .badge--won      { background: color-mix(in srgb, var(--green) 13%, transparent); color: var(--green); }
 .badge--lost     { background: color-mix(in srgb, var(--red) 11%, transparent);   color: var(--red); }
@@ -366,7 +506,7 @@
   cursor: pointer;
   transition: border-color .14s, color .14s, background .14s;
 }
-.reveal:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); background: var(--blue-100); }
+.reveal:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); background: var(--brand-100); }
 .reveal:disabled { opacity: .45; cursor: not-allowed; }
 .reveal svg { width: 13px; height: 13px; }
 
@@ -385,10 +525,31 @@
   gap: 8px;
 }
 
+/* Countdown to the automatic re-mask. Visible on purpose: a value that
+ * vanishes without warning reads as a bug, and a rep who can see the
+ * seconds ticking knows to write down what they need rather than
+ * reaching for a screenshot. */
 .revealed__ttl {
-  font-size: 11px;
+  font-size: 10.5px;
+  font-weight: 600;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+  min-width: 30px;
+  text-align: center;
+}
+
+/* The unwatermarked fallback — GD missing, or baking turned off for
+ * accessibility. Flagged visually so nobody mistakes selectable text for
+ * the protected path. */
+.revealed[data-plain="true"] {
+  outline: 1px dashed color-mix(in srgb, var(--amber) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
+  padding: 0 3px;
 }
 
 
@@ -417,7 +578,7 @@
 .meter__fill {
   height: 100%;
   border-radius: 999px;
-  background: var(--blue);
+  background: var(--brand);
   transition: width .3s ease;
 }
 .meter__fill[data-level="warn"]   { background: var(--amber); }
@@ -460,7 +621,7 @@
   appearance: none;
   cursor: pointer;
 }
-.select:focus-visible { border-color: var(--blue); box-shadow: var(--ring); outline: none; }
+.select:focus-visible { border-color: var(--brand); box-shadow: var(--ring); outline: none; }
 
 .btn--sm { padding: 9px 14px; font-size: 13.5px; }
 
@@ -474,8 +635,8 @@
   align-items: center;
   gap: 12px;
   padding: 11px 16px;
-  background: var(--blue-100);
-  border: 1px solid color-mix(in srgb, var(--blue) 24%, transparent);
+  background: var(--brand-100);
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
   border-radius: var(--r-md);
   font-size: 13.5px;
 }
@@ -558,7 +719,7 @@
   gap: 9px;
   align-items: flex-start;
   padding: 12px 14px;
-  background: var(--navy);
+  background: var(--ink);
   color: #fff;
   border-radius: var(--r-md);
   box-shadow: var(--shadow-lg);
@@ -607,7 +768,7 @@
   z-index: 70;
   pointer-events: none;
   padding: 8px 10px;
-  background: var(--navy);
+  background: var(--ink);
   color: #fff;
   border-radius: var(--r-sm);
   font-size: 12.5px;
@@ -713,8 +874,8 @@
   flex: none;
 }
 
-.step[data-state="active"] { background: var(--blue-100); color: var(--blue); }
-.step[data-state="active"] .step__n { background: var(--blue); color: #fff; }
+.step[data-state="active"] { background: var(--brand-100); color: var(--brand); }
+.step[data-state="active"] .step__n { background: var(--brand); color: #fff; }
 
 .step[data-state="done"] { color: var(--green); }
 .step[data-state="done"] .step__n {
@@ -742,8 +903,8 @@
   cursor: pointer;
 }
 .drop:hover, .drop[data-over="true"] {
-  border-color: var(--blue);
-  background: var(--blue-100);
+  border-color: var(--brand);
+  background: var(--brand-100);
 }
 .drop svg { width: 30px; height: 30px; color: var(--text-faint); }
 .drop strong { font-family: var(--font-head); font-size: 15px; }
@@ -790,4 +951,37 @@
   font-size: 13.5px;
   cursor: pointer;
 }
-.confirmrow input { margin-top: 3px; accent-color: var(--blue); width: 16px; height: 16px; flex: none; }
+.confirmrow input { margin-top: 3px; accent-color: var(--brand); width: 16px; height: 16px; flex: none; }
+
+
+/* ══ Clickable table rows ════════════════════════════════════════ */
+
+/* Used by the Users grid, where a row opens that person's detail page.
+ * A row that navigates must look and behave like it does: pointer,
+ * hover, and a real focus ring — an admin on a phone call needs to be
+ * able to drive this from the keyboard. */
+.rowlink { cursor: pointer; }
+
+.rowlink:hover { background: var(--brand-100); }
+
+.rowlink:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+/* A hint that the row goes somewhere, without spending a column on it. */
+.rowlink td:last-child { position: relative; }
+
+.rowlink td:last-child::after {
+  content: '›';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  font-size: 17px;
+  opacity: 0;
+  transition: opacity .14s;
+}
+.rowlink:hover td:last-child::after,
+.rowlink:focus-visible td:last-child::after { opacity: 1; }

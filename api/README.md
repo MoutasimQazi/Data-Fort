@@ -10,18 +10,42 @@ existing `pm-backend-php`.
 
 ```bash
 # 1. Database
-mysql -u root -p datafort < api/migrations/001_schema.sql
+mysql -u folksfi1_moutasim -p folksfi1_datafort < api/migrations/001_schema.sql
 
-# 2. Config
-cp api/config.sample.php api/config.php
-# edit api/config.php — database credentials, tenant slug
+# 2. Config — already written for this deployment:
+#    db folksfi1_datafort, user folksfi1_moutasim, host localhost
+#    (api/config.php is gitignored; config.sample.php is the template)
 
 # 3. Verify config.php is NOT web-reachable
-curl -I https://erp.moveneticsdigital.com/api/config.php   # must be 403
+curl -I https://datafort.folksfirstlabs.com/api/config.php   # must be 403
 
-# 4. Delete the mock data before going live
-rm mock-data.js
+# 4. OPTIONAL — sample data for testing (never on production)
+mysql -u folksfi1_moutasim -p folksfi1_datafort < api/migrations/002_test_data.sql
 ```
+
+### Accounts after migration
+
+| Email | Password | Role |
+|---|---|---|
+| `admin@moveneticsdigital.com` | `admin@123` | admin — seeded by 001 |
+| `priya@moveneticsdigital.com` | `test@123` | rep, quota 40 |
+| `rahul@moveneticsdigital.com` | `test@123` | rep, quota 40, heavy user |
+| `aisha@moveneticsdigital.com` | `test@123` | rep, quota 25, **already exhausted** |
+| `vikram@moveneticsdigital.com` | `test@123` | rep, quota 40, light |
+| `sneha@moveneticsdigital.com` | `test@123` | rep, **suspended** |
+
+**These passwords are in version control and this repo has a GitHub
+remote.** They are fine for a test database and unacceptable anywhere
+holding a real lead. `admin@123` is also below the policy the app
+enforces on every other password — `auth-reset.php` would refuse to set
+it. Change it before this instance holds anything real.
+
+`api/setup.php` remains available for creating an admin the proper way
+(it enforces the real password policy). Delete it once you are done.
+
+`mock-data.js` no longer exists — every page reads live data through
+`api.js`. If the database is empty the pages show empty states, which is
+the honest result rather than a demo that looks live.
 
 ### Grant only what each table needs
 
@@ -29,10 +53,10 @@ rm mock-data.js
 this grant makes it something the database enforces:
 
 ```sql
-GRANT SELECT, INSERT, UPDATE, DELETE ON datafort.* TO 'datafort_app'@'localhost';
-REVOKE UPDATE, DELETE ON datafort.audit_log FROM 'datafort_app'@'localhost';
-REVOKE UPDATE, DELETE ON datafort.device_auth_log FROM 'datafort_app'@'localhost';
-REVOKE UPDATE, DELETE ON datafort.lead_reveals FROM 'datafort_app'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON folksfi1_datafort.* TO 'folksfi1_moutasim'@'localhost';
+REVOKE UPDATE, DELETE ON folksfi1_datafort.audit_log FROM 'folksfi1_moutasim'@'localhost';
+REVOKE UPDATE, DELETE ON folksfi1_datafort.device_auth_log FROM 'folksfi1_moutasim'@'localhost';
+REVOKE UPDATE, DELETE ON folksfi1_datafort.lead_reveals FROM 'folksfi1_moutasim'@'localhost';
 ```
 
 Without the REVOKE, a SQL injection anywhere in the app can erase the
@@ -60,7 +84,15 @@ actions are still recorded.
 | `devices-list.php` | GET | admin | Register + recent denials |
 | `devices-save.php` | POST | admin | Register, assign, activate, disable, revoke |
 | `audit-list.php` | GET | admin | Read only. No export, ever. |
-| `security-event.php` | POST | signed in | Untrusted client signals |
+| `security-event.php` | POST | signed in | Untrusted client signals. `contact_revealed` is NOT accepted from a client |
+| `dashboard.php` | GET | admin | Everything index.html needs, one request |
+| `settings-get.php` | GET | admin | Tenant policy |
+| `settings-save.php` | POST | admin | Audits every field change |
+| `import-commit.php` | POST | admin | CSV + XLSX; `preview=1` returns headers only |
+| `import-destroy.php` | POST | admin | Records the source file was destroyed |
+| `auth-change-password.php` | POST | signed in | Requires current password; revokes other sessions |
+| `setup.php` | GET/POST | nobody | First admin only. **Delete after use.** |
+| `dbtest.php` | GET | nobody | Connection diagnostic. **Delete after use.** |
 
 **There is no `export-*.php`, and there must never be one.** Section 9 of
 the requirements: no export endpoint exists, so there is nothing to
@@ -105,7 +137,9 @@ handshake with it. For a lost or stolen laptop you must do both:
 ```bash
 # 1. In Datafort — Devices page → Revoke
 # 2. At the CA
-step ca revoke --serial 8A91F23B
+openssl ca -config ca.cnf -revoke laptop-001.crt
+openssl ca -config ca.cnf -gencrl -out company-ca.crl
+# copy company-ca.crl to the path in SSLCARevocationFile
 # 3. Publish the CRL and make sure Apache is reading it
 #    (SSLCARevocationFile in apache/datafort-mtls.conf)
 ```
@@ -147,19 +181,74 @@ cookie worthless off the device.
 
 ## Known gaps
 
-- **XLSX import is not implemented.** `import.html` parses CSV in the
-  browser for preview; real Excel parsing needs PhpSpreadsheet
-  server-side. `import-*.php` does not exist yet.
-- **Dashboard endpoints do not exist.** `index.html` still reads
-  `mock-data.js`.
 - **2FA is schema-only.** `users.totp_secret` exists; nothing verifies it.
-- **No CSRF tokens.** Currently mitigated by `SameSite=Strict` cookies
-  plus a JSON content type, which blocks the form-post attack. Add real
-  tokens before any endpoint accepts `application/x-www-form-urlencoded`.
+- **No CSRF tokens.** Mitigated by `SameSite=Strict` cookies plus a JSON
+  content type, which blocks the form-post attack. Add real tokens before
+  any endpoint accepts `application/x-www-form-urlencoded`.
+- **No session management UI.** A session can only be killed by suspending
+  the user or changing their password.
+- **Rule-based assignment is not built.** Manual assign/recall only.
+- **Old `.xls` is not supported** — only `.xlsx` and `.csv`. The binary
+  format needs a real library; Excel converts it in two clicks.
 - **Tenant isolation is application-enforced, not database-enforced.**
   MySQL has no row-level security. Every query carries `tenant_id`; a
   missing `WHERE` clause is a cross-tenant leak rather than an empty
-  result. Review accordingly.
-- **PHP was never linted.** No PHP binary was available on the machine
-  these files were written on. Run `php -l` over every file before
-  deploying.
+  result.
+- **PHP was never linted.** No PHP binary on the machine these files were
+  written on. Brace, paren and opening-tag structure were checked
+  mechanically across all 31 files and are consistent, but that is not a
+  syntax check. Run `php -l api/*.php` before deploying.
+
+## Security findings from the last audit
+
+**Stored XSS — fixed.** `Datafort.escape()` and `charts.js esc()` escaped
+`& < >` but not quotes, and both are used inside HTML attributes:
+
+```js
+aria-label="Select ' + escape(lead.name) + '"
+```
+
+A lead imported with the name `" onmouseover="…` closed the attribute and
+injected a handler. Lead names come from a customer's spreadsheet, so
+they are attacker-controlled the moment anyone imports a file they were
+sent — and the payload then ran in the **administrator's** session, which
+can read every lead and change every quota. The session cookie is
+`httpOnly` so it could not be stolen directly, but the injected script
+could call the API as the admin: reveal contacts, disable device
+enforcement, raise quotas.
+
+Both helpers now escape `"` and `'` as well.
+
+**Burst limit was bypassable — fixed.** The 2-second rate limit sat
+inside the "not already paid" branch, so a rep who had legitimately
+revealed forty numbers across a day could script a loop and pull all
+forty back as images in seconds. Re-reveals are free by design, which
+made the hole free to walk through. The limiter now covers every
+attempt, tracked in `security_events` as `reveal_attempt` — that type is
+**not accepted from a client**, or a browser could forge its own
+rate-limit history.
+
+**`xlsx.php` and `honeytoken.php` are now in the `.htaccess` deny list.**
+Both are libraries, not endpoints. `honeytoken.php` matters most: it is
+the only file that describes how decoys are generated, and anyone who
+reads it can strip them out of a stolen list.
+
+**Note on growth.** `security_events` now gains a row per reveal
+attempt. At 40 reveals per rep per day this accumulates quickly and
+there is still no retention policy — see the gaps list.
+
+---
+
+## Recently closed
+
+- **Honeytoken seeding now runs** (`api/honeytoken.php`, called from
+  `leads-assign.php`). Attribution was previously advertised but absent.
+- **Admin reveals write to `lead_reveals`.** They stay uncapped when
+  `daily_quota = 0`, but they are counted — the ledger no longer omits
+  the one account with unrestricted access.
+- **Burst limit**: reveals faster than one per 2 seconds are refused.
+- **XLSX import** via `api/xlsx.php` — ZipArchive + SimpleXML, no
+  Composer. XXE off, zip-bomb ceiling, cells indexed by their `r=` ref so
+  a sparse row cannot shift columns.
+- **One-at-a-time reveal** (`reveal.js`) — only the most recent value is
+  unmasked; it re-masks after 60s or on blur. Re-revealing is free.

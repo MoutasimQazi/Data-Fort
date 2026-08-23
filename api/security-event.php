@@ -37,11 +37,17 @@ if (!is_array($events)) {
 // bug or someone trying to fill the table.
 $events = array_slice($events, 0, 50);
 
+/* Types a CLIENT is allowed to report.
+ *
+ * 'contact_revealed' is deliberately NOT here. lead-reveal.php writes
+ * that row itself, and the burst limiter counts it — so accepting one
+ * from the browser would let a client forge its own rate-limit history.
+ * Anything the server records about itself must not also be writable by
+ * the thing being measured. */
 $allowed = [
     'clipboard_blocked', 'contextmenu_blocked', 'drag_blocked', 'key_blocked',
     'devtools_shortcut', 'devtools_opened', 'printscreen_pressed',
-    'watermark_removed', 'contact_revealed', 'lead_access_denied',
-    'source_file_destroyed',
+    'watermark_removed', 'lead_access_denied', 'source_file_destroyed',
 ];
 
 $stmt = $pdo->prepare(

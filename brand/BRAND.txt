@@ -1,143 +1,214 @@
 DATAFORT - BRAND ASSETS
-Last updated: 2026-08-19
+Last updated: 2026-08-20
+
+
+====================================================================
+PRODUCT vs COMPANY  -  READ THIS FIRST
+====================================================================
+
+  Datafort is the PRODUCT. FolksFirst Labs is the COMPANY.
+
+  The artwork in logo.png is the FolksFirst Labs logo and it contains
+  a FOLKSFIRST LABS wordmark. That wordmark is NOT used anywhere in
+  the Datafort UI. The app uses:
+
+      the FolksFirst hexagon MARK   +   "DATAFORT" as live text
+
+  in the sidebar and on the login panel. Everything the product says
+  about itself - page titles, body copy, the login footer - says
+  Datafort.
+
+  So: if you are placing a logo inside the app, you want
+  logo-mark-light.png, not any of the full lockups. The lockups exist
+  for company-level material (website, email header, decks), which is
+  a different surface with a different owner.
 
 
 ====================================================================
 FILES IN THIS FOLDER
 ====================================================================
 
-  datafort-icon.svg        Full-colour mark. Navy fort, blue data layers.
-                           Primary app icon. Use on light backgrounds.
+  USED BY THE APP
+  ---------------
+  logo-mark-light.png      Hexagon mark, WHITE KNOCKOUT, 363 x 414.
+                           Loaded by the sidebar (30 px) and the login
+                           brand panel (42 px). Both sit on near-black
+                           chrome, hence the knockout - see below.
 
-  datafort-icon-mono.svg   Single-colour mark using currentColor.
-                           Set CSS `color:#fff` for the white version,
-                           `color:#000` for the black version.
-                           One file covers both.
+  favicon.ico              16/32/48/64 px, mark only.
+  favicon.png              64 px PNG fallback.
+  apple-touch-icon.png     180 px, mark only.
 
-  datafort-lockup.svg      Mark + DATAFORT wordmark, horizontal.
-                           Wordmark is LIVE TEXT - see Typography below.
+  COMPANY MATERIAL - NOT LOADED BY THE APP
+  ----------------------------------------
+  logo.png                 THE SOURCE OF TRUTH for every derived file
+                           here. Stacked lockup, mark above wordmark,
+                           red and near-black on transparent, trimmed
+                           to 623 x 499. Light backgrounds only.
 
-  preview.html             Open in a browser to check all variants
-                           against the original artwork.
+  logo-light.png           Stacked lockup, white knockout.
 
-  source/                  EMPTY - drop the original artwork here.
-                           See "Missing source files" below.
+  logo-horizontal.png      Mark LEFT of wordmark, 801 x 160 (5:1), for
+                           wide short spaces. Composed from the same
+                           artwork at true aspect ratio; nothing is
+                           stretched or retyped.
 
+  logo-horizontal-light.png  Horizontal lockup, white knockout.
 
-====================================================================
-MISSING SOURCE FILES  -  ACTION NEEDED
-====================================================================
+  logo-mark.png            Hexagon mark alone, full colour, 363 x 414.
 
-The original logo was shared in chat, not as a file on disk, so it
-could not be saved automatically. The SVGs above are a VECTOR REBUILD
-drawn to match it, not the original artwork.
+  preview.html             Open in a browser to check every variant.
 
-Please drop the real files into brand/source/ :
-
-  brand/source/datafort-logo.png       the full brand sheet
-  brand/source/datafort-icon.png       icon standalone, if separate
-  brand/source/datafort-logo.svg       vector original, if the
-                                       designer supplied one
-  brand/source/datafort-logo.ai        editable original, if any
-
-If a vector original exists, use it and delete the rebuilt SVGs. A
-rebuild is only worth keeping if there is no true vector source.
+  LEGACY
+  ------
+  The old Datafort fort-and-data-layers mark, superseded but kept so
+  nothing 404s if a stale page is cached:
+      datafort-icon.svg  datafort-icon-mono.svg  datafort-lockup.svg
 
 
 ====================================================================
 COLOUR PALETTE
 ====================================================================
 
-  IMPORTANT: these values were read off the shared image by eye.
-  Confirm each one with an eyedropper on the original file before
-  they go into production CSS. Do not treat them as final.
+  These are EYEDROPPED FROM logo.png, not estimated. #B91917 covers
+  65,491 pixels of the artwork; #020102 covers the inner figure and
+  the wordmark.
 
   NAME            HEX        USE
   ------------------------------------------------------------------
-  Fort Navy       #14213D    Primary. Mark, wordmark, headers,
-                             admin chrome, dark backgrounds.
-  Signal Blue     #1E6BF1    Accent. Data layers in the mark,
-                             primary buttons, links, active states.
-  Off White       #F4F6F8    Page background, light surfaces.
-  Ink Black       #000000    Black version of the mark only.
-  Pure White      #FFFFFF    White version of the mark, card surfaces.
+  FolksFirst Red  #B91917    Primary. The hexagon, primary buttons,
+                             links, active nav, focus ring.
+  Brand Red Deep  #9C1513    Hover / pressed state for the above.
+  Brand Red Lift  #D62B23    The SAME red lifted for use ON the
+                             near-black chrome, where #B91917 sits
+                             too close to the background to read as
+                             a raised surface. Sidebar active nav.
+  Brand Red Tint  #FDECEB    Selected rows, soft fills, hover states.
+  Ink Black       #0B0B0C    The figure and wordmark. Body text base,
+                             forensic watermark ink.
+  Chrome Ink      #16161A    Sidebar and login panel. Deliberately
+                             just off #0B0B0C - pure black reads as a
+                             hole next to the white content column.
+  Off White       #F5F5F6    Page background.
+  Pure White      #FFFFFF    Card surfaces, knockout wordmark.
 
-  SUGGESTED FUNCTIONAL COLOURS (not in the original artwork,
-  needed for the product UI - approve or replace):
+  FUNCTIONAL COLOURS
 
   Alert Red       #DC2626    Anomaly alerts, quota breach, revoke.
   Warning Amber   #F59E0B    Quota nearly exhausted, stale leads.
   Success Green   #16A34A    Converted lead, import succeeded.
-  Muted Grey      #6B7280    Masked field placeholder, disabled text.
+  Status New      #2a6fe0    "New" lead badges.
 
-  ACCESSIBILITY CHECK STILL TO DO
-    Signal Blue #1E6BF1 on white is roughly 4.6:1, which passes WCAG
-    AA for normal text but only just. Verify before using it for body
-    copy. It is safe for buttons and large text either way.
+  DANGER SHARES THE BRAND HUE - READ THIS
+    Brand red and alert red are the same family, so they cannot be
+    told apart by colour alone. The system separates them by
+    TREATMENT instead, and that separation is load-bearing:
+
+      Brand red  -> solid fills only. Primary button, active nav.
+      Alert red  -> tint, outline or transient toast. Never a solid
+                    fill competing with a primary button.
+
+    .alert--error and .badge--lost are already built this way (8-11%
+    background, red text). There is no .btn--danger class - the button
+    set is .btn--primary / .btn--ghost / .btn--block only. If one is
+    ever added, build it as a ghost with red text, NOT a solid red
+    fill: a solid red destructive button is indistinguishable from the
+    primary Save button and the danger signal is gone.
+
+  "NEW" IS NOT BRAND RED
+    Status new and status lost sit in the same table column, so new
+    keeps the blue #2a6fe0 (#4d8ef5 dark) it has always had rather
+    than inheriting the brand tint. That value is shared with
+    STATUS.new in charts.js so a status reads the same as a badge and
+    as a chart segment. The categorical chart series are likewise NOT
+    rebranded - they are validated for colour-vision separation and
+    are independent of brand colour by design.
+
+  ACCESSIBILITY - MEASURED, NOT ASSUMED
+    Every figure below was computed, not eyeballed.
+
+    #B91917 on #FFFFFF        6.53:1  AA body text
+    #FFFFFF on #B91917        6.53:1  AA, white on red buttons
+    #DC2626 on #FFFFFF        4.83:1  AA body text
+    #16181B on #F5F5F6       16.33:1  AA body text
+    #6B6B75 on #F5F5F6        4.84:1  AA muted text
+    #8A8A95 on #F5F5F6        3.13:1  large / non-text only
+    #D62B23 on #16161A        3.63:1  active nav fill vs chrome
+    #FFFFFF on #D62B23        4.97:1  AA, active nav label
+
+    Dark mode lifts brand and alert so both clear AA on #151518:
+      #E5443B  4.53:1        #F0564B  5.33:1
 
 
 ====================================================================
 THE MARK - WHAT IT MEANS
 ====================================================================
 
-A hexagonal fort keep with battlements, hollow, holding three stacked
-data layers. Fort plus data. It reads as the product thesis in one
-shape: the lead list lives inside the walls, not in a file on someone
-laptop.
+Two chevrons meeting in a hexagon, with a single person at the centre
+of it. Folks first: the structure exists around the individual, not
+the other way round.
 
-Worth keeping in mind for the UI - the mark already says "contained",
-so the interface does not need to shout about security. Let the
-product feel calm and let the audit log do the talking.
+For the UI this means what the old note said, and it is still true -
+the mark already says "contained", so the interface does not need to
+shout about security. Let the product feel calm and let the audit log
+do the talking.
 
 
 ====================================================================
 USAGE RULES
 ====================================================================
 
-  CLEAR SPACE
-    Keep free space around the mark equal to the height of one
-    battlement notch, roughly 14 units in the SVG viewBox.
-
-  MINIMUM SIZE
-    Icon:   24 px. Below this the data layers merge - use a
-            simplified favicon instead.
-    Lockup: 120 px wide. Below this drop the wordmark and use the
-            icon alone.
+  INSIDE THE APP
+    Mark only, plus "DATAFORT" as live text in --font-head. Never the
+    FolksFirst wordmark. See .side__brand in app.css and
+    .brandside__logo in login.css.
 
   BACKGROUNDS
-    Light background   -> datafort-icon.svg (full colour)
-    Off-white surface  -> datafort-icon.svg (full colour)
-    Navy background    -> datafort-icon-mono.svg with color:#fff
-    Black background   -> datafort-icon-mono.svg with color:#fff
-    Photo / busy image -> mono white only, never full colour
+    Light background   -> logo.png / logo-mark.png
+    Dark chrome        -> logo-light.png / logo-mark-light.png
+    Photo / busy image -> knockout only
+
+    Never place the full-colour artwork on a dark background. Its
+    inner figure and wordmark are near-black and simply disappear -
+    that is the exact reason the knockout variants exist.
+
+  WHICH ORIENTATION (company material only)
+    Stacked is the primary lockup - use it wherever there is vertical
+    room. Horizontal is for wide, short spaces.
+
+  MINIMUM SIZE
+    Mark:   24 px. Below this the centre figure fills in - use
+            favicon.ico, which is built for it.
+    Lockup: 120 px wide. Below this drop the wordmark and use the
+            mark alone.
+
+  CLEAR SPACE
+    Keep free space around the mark equal to the width of one chevron
+    arm, roughly 12% of the mark height.
 
   DO NOT
     - Recolour the mark outside the palette above
     - Stretch, skew, rotate or add effects
-    - Place the full-colour mark on a dark background
-    - Rebuild the wordmark in a different typeface
+    - Place the full-colour lockup on a dark background
+    - Put the FOLKSFIRST LABS wordmark in the product UI
     - Use the mark as a watermark on lead screens. The security
-      watermark is per-user text, not the logo. See requirements 7.3.
+      watermark is per-user text, not the logo. See requirements 7.3
+      and the header comment in watermark.js.
 
 
 ====================================================================
 TYPOGRAPHY
 ====================================================================
 
-  The wordmark in the original is a heavy geometric sans, all caps,
-  lightly letter-spaced. It is close to Poppins Bold or Montserrat
-  Bold but has NOT been confirmed.
+  The wordmark inside logo.png is outlined pixels, not live text, so
+  it cannot break on a machine without the font.
 
-  ASK THE DESIGNER which typeface it is. Until then:
+  The "DATAFORT" wordmark in the app IS live text, set in --font-head
+  (Poppins 700, 1 px tracking). That is deliberate: it inherits
+  currentColor for the dark chrome and costs no extra request. Poppins
+  is already loaded on every page. If that ever changes, outline it.
 
-  - datafort-lockup.svg uses live text with a font stack, so it will
-    render differently on machines without the font installed.
-  - Before production, either convert the wordmark to outlined paths
-    or self-host the correct webfont.
-  - Never ship the lockup as live text to end users. A missing font
-    means a broken logo.
-
-  SUGGESTED UI TYPE (separate from the logo):
+  UI type:
     Headings  Poppins or Montserrat, 600
     Body      Inter or system-ui, 400/500
     Numeric   tabular-nums for quota counters and audit timestamps
@@ -147,9 +218,8 @@ TYPOGRAPHY
 STILL TO PRODUCE
 ====================================================================
 
-  - favicon.ico plus 32/64/180/512 px PNG app icons
-  - Simplified favicon mark, since the data layers will not survive
-    at 16 px
-  - Login screen lockup, white on navy
+  - Vector (SVG) version of the mark. logo.png is raster, so it
+    soft-edges on large placements and in print. Ask the designer for
+    the original AI/SVG and drop it in source/.
+  - 512 px PNG app icon for a web manifest, if one is ever added
   - Email header lockup for the server-side relay in requirements 7.1
-  - Outlined-path version of the wordmark

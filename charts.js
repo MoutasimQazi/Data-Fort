@@ -8,7 +8,7 @@
  *
  * ── The palette ──
  * Four categorical slots, validated with the six checks against this
- * app's real surfaces (#FFFFFF light, #131E33 dark) rather than
+ * app's real surfaces (#FFFFFF light, #151518 dark) rather than
  * assumed. Lightness band, chroma floor, CVD separation, normal-vision
  * separation and contrast all PASS in both modes.
  *   light  worst adjacent CVD ΔE 9.1 (protan), normal ΔE 26.4
@@ -49,9 +49,18 @@
   var GRID  = 'var(--border-soft)';
   var SURFACE = 'var(--surface)';
 
+  /* Escapes for markup INCLUDING attributes. The tooltip text is built
+   * into  data-tip="…"  and the whole SVG is then assigned via
+   * innerHTML, so a source name or a rep name containing a quote would
+   * otherwise close the attribute and inject a handler. Those names come
+   * from imported spreadsheets and from the user table — not from us. */
   function esc(s) {
     return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function svgEl(w, h) {
@@ -121,11 +130,24 @@
     opts = opts || {};
     if (!host) return;
 
+    /* No rows means a zero-height SVG and a blank card. On a fresh
+     * tenant that is all four charts silently empty, which reads as a
+     * broken page rather than as "nothing has happened yet". */
+    if (!rows || !rows.length) {
+      host.innerHTML = emptyFigure('No data yet');
+      return;
+    }
+
     var barH = 22, gap = 12, padL = 132, padR = 54, padT = 6;
     var h = rows.length * (barH + gap) - gap + padT * 2;
     var w = 560;
     var plotW = w - padL - padR;
-    var max = Math.max.apply(null, rows.map(function (r) { return r.value; })) || 1;
+
+    /* Math.max.apply(null, []) is -Infinity, which is truthy — so the
+     * usual `|| 1` fallback does not catch it. Guarded above, but the
+     * all-zeros case still needs a floor or every bar divides by zero. */
+    var max = Math.max.apply(null, rows.map(function (r) { return r.value; }));
+    if (!isFinite(max) || max <= 0) max = 1;
 
     var colors = status();
     var one = cat()[0];
@@ -175,8 +197,29 @@
    * contacts are both counts of actions, so they share one scale and
    * the comparison between them is the entire point of the figure.
    */
+  /* Shared placeholder so an empty chart says so instead of rendering
+   * an invisible zero-height SVG. */
+  function emptyFigure(message) {
+    return '<div class="empty" style="padding:34px 16px">' +
+      '<p style="margin:0">' + esc(message) + '</p></div>';
+  }
+
   function trend(host, rows, series) {
     if (!host) return;
+
+    if (!rows || !rows.length) {
+      host.innerHTML = emptyFigure('No activity recorded yet');
+      return;
+    }
+
+    /* A single point makes the x scale divide by (length - 1) = 0 and
+     * every coordinate becomes NaN, which renders as nothing at all.
+     * dashboard.php always sends 14 days, so this is a guard against a
+     * future caller rather than a live bug. */
+    if (rows.length < 2) {
+      host.innerHTML = emptyFigure('Not enough history to plot a trend yet');
+      return;
+    }
 
     var w = 560, h = 210;
     var padL = 38, padR = 58, padT = 14, padB = 26;

@@ -1,0 +1,35 @@
+# Live credentials. Never commit.
+#
+# This repo has a GitHub remote. The existing pm-backend-php repo has
+# live database credentials sitting in a public repository — that is the
+# exact mistake this line exists to prevent on the product whose whole
+# pitch is that data does not leak.
+#
+# Verify before every push:  git ls-files api/config.php   (must be empty)
+api/config.php
+
+# NOTE: api/setup.php is deliberately NOT ignored, so it deploys with the
+# code on a fresh install. It refuses to run once an administrator
+# exists, but "refuses to run" is not "is not there" — delete it from the
+# server the moment the first admin is created.
+
+# Certificate material. The CA signing key is the root of the entire
+# device-authentication layer; if it leaks, anyone can mint a laptop
+# certificate and the whole mTLS story is over.
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.crl
+
+# Local
+.DS_Store
+Thumbs.db
+*.log
+*.bak
+*.swp
+
+# Standalone connection diagnostic. Prints database name, user and host.
+# Delete from the server after use.
+api/dbtest.php

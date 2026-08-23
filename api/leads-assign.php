@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/honeytoken.php';
 
 requireMethod('POST');
 
@@ -74,7 +75,38 @@ try {
     respond(['error' => 'Assignment failed'], 500);
 }
 
+/* Top the rep up to the tenant's configured number of decoys.
+ *
+ * Done on assignment rather than on import, because a decoy is only
+ * useful once it sits inside a book somebody actually works. A decoy in
+ * the unassigned pool identifies nobody.
+ *
+ * Outside the transaction on purpose: a failure to seed must not roll
+ * back an assignment the admin has already been told succeeded. Losing
+ * attribution on one batch is recoverable; losing the assignment is
+ * confusing. */
+$seeded = 0;
+
+if ($target !== null) {
+    try {
+        $seeded = seedHoneytokens(
+            $pdo, $tid, (int) $target['id'],
+            (int) ($ctx['tenant']['honeytokens_per_rep'] ?? 0),
+            $user
+        );
+    } catch (Throwable $e) {
+        error_log('[datafort] honeytoken seeding failed: ' . $e->getMessage());
+    }
+}
+
 $response = ['ok' => true, 'changed' => $changed];
+
+if ($seeded > 0) {
+    // Reported to the admin so they can see attribution is actually
+    // running. Never reported to a rep — leads-list.php returns
+    // honeytoken:false for non-admins, and that must stay true.
+    $response['seeded'] = $seeded;
+}
 
 /* Flag a batch the target cannot realistically work through. Not a
  * refusal — the admin may know something we do not — but a quota of 25

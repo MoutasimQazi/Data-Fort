@@ -82,24 +82,97 @@ if ($value === '' || $value === null) {
     respond(['error' => 'No value on record for that field'], 404);
 }
 
-/* ── Rule 1: quota, counted server-side ── */
-$limit = (int) $user['quota'];
+/* ── Rule 1: quota, counted server-side ──
+ *
+ * For an admin, daily_quota = 0 means UNLIMITED. For a rep it means
+ * blocked. The difference is deliberate: an admin is the tenant's
+ * trusted party and capping them stops legitimate bulk work, while a rep
+ * with no quota should not be unmasking anything.
+ *
+ * What is NOT different any more: the ledger row. Admin reveals used to
+ * skip lead_reveals entirely, which meant the one account with
+ * unrestricted access to every lead was the one account the ledger did
+ * not measure — and lead_reveals is the first table anyone reads when
+ * working out where a list went. A compromised admin left no trace
+ * there. Now everyone is recorded; only the cap differs.
+ */
+$limit    = (int) $user['quota'];
+$isAdmin  = $user['role'] === 'admin';
+$metered  = !($isAdmin && $limit === 0);   // admins on 0 are uncapped
 
-if ($user['role'] !== 'admin') {
-    /* Already revealed this exact field on this exact lead? Do not charge
-     * again. Re-reading something you already paid for is not new
-     * exposure, and charging for it would push reps to screenshot the
-     * value the first time "just in case" — the precise behaviour this
-     * product exists to discourage. */
-    $seen = $pdo->prepare(
-        "SELECT 1 FROM lead_reveals
-         WHERE tenant_id = ? AND user_id = ? AND lead_id = ? AND field = ?
-         LIMIT 1"
-    );
-    $seen->execute([$user['tenant_id'], $user['id'], $lead['id'], $field]);
-    $alreadyPaid = (bool) $seen->fetchColumn();
+/* Already revealed this exact field on this exact lead? Do not charge
+ * again. Re-reading something you already paid for is not new exposure,
+ * and charging for it would push reps to screenshot the value the first
+ * time "just in case" — the precise behaviour this product exists to
+ * discourage. It is also what makes the one-at-a-time display rule in
+ * reveal.js humane: a value that re-masks itself can always be brought
+ * back for free. */
+$seen = $pdo->prepare(
+    "SELECT 1 FROM lead_reveals
+     WHERE tenant_id = ? AND user_id = ? AND lead_id = ? AND field = ?
+     LIMIT 1"
+);
+$seen->execute([$user['tenant_id'], $user['id'], $lead['id'], $field]);
+$alreadyPaid = (bool) $seen->fetchColumn();
 
-    if (!$alreadyPaid) {
+/* ── Burst limit ──
+ *
+ * The daily quota caps the total; it does nothing about 40 reveals in
+ * 40 seconds, which is what a script does and what someone emptying
+ * their book before resigning does. Two seconds between reveals is
+ * invisible to a person reading a number off the screen and dialling
+ * it, and turns a scripted sweep into a slow, noisy one.
+ *
+ * Applies to EVERY reveal, including ones already paid for. Putting
+ * this inside the "not already paid" branch left a hole straight
+ * through the one-at-a-time rule: a rep who had legitimately revealed
+ * forty numbers across a day could script a loop at 5pm and pull all
+ * forty back as images in a couple of seconds. They had seen each one
+ * before, but seeing is not capturing in bulk, and bulk capture is the
+ * thing being prevented.
+ *
+ * Rate is tracked in its own table rather than inferred from
+ * lead_reveals, because lead_reveals only gains a row on a FIRST
+ * reveal — a re-reveal would leave no trace to rate-limit against.
+ */
+$recent = $pdo->prepare(
+    "SELECT COUNT(*) FROM security_events
+     WHERE tenant_id = ? AND user_id = ? AND type = 'reveal_attempt'
+       AND at > DATE_SUB(NOW(), INTERVAL 2 SECOND)"
+);
+$recent->execute([$user['tenant_id'], $user['id']]);
+
+if ((int) $recent->fetchColumn() > 0) {
+    audit($pdo, $user['tenant_id'], $user, 'blocked', $ref,
+        'Reveal refused — faster than one every 2 seconds', $device);
+    respond([
+        'error' => 'Slow down — one reveal at a time. Try again in a moment.',
+        'quota' => quotaPayload($pdo, $user, $limit),
+    ], 429);
+}
+
+/* Every ATTEMPT leaves a timestamp here — including ones the quota gate
+ * below is about to refuse. That is deliberate: what needs rate-limiting
+ * is the request rate, and a script hammering a spent quota is exactly
+ * the pattern worth slowing down.
+ *
+ * Named 'reveal_attempt' rather than 'contact_revealed' for that reason.
+ * A row that says something was revealed when the request was refused
+ * would put a lie in the one place an investigator has to trust.
+ *
+ * This is also the only trace a RE-reveal leaves: lead_reveals gains a
+ * row on the first reveal only, so without this a rep pulling forty
+ * already-paid values back would be invisible. */
+$pdo->prepare(
+    "INSERT INTO security_events (tenant_id, user_id, type, detail, page, ip)
+     VALUES (?,?,'reveal_attempt',?,'api/lead-reveal.php',?)"
+)->execute([
+    $user['tenant_id'], $user['id'], $ref . '/' . $field, clientIp(),
+]);
+
+if (!$alreadyPaid) {
+
+    if ($metered) {
         $used = revealsToday($pdo, $user['tenant_id'], $user['id']);
 
         if ($limit <= 0 || $used >= $limit) {
@@ -110,17 +183,18 @@ if ($user['role'] !== 'admin') {
                 'quota'  => ['limit' => $limit, 'used' => $used, 'left' => 0],
             ], 429);
         }
-
-        /* ── Rule 3: write the ledger row before rendering ── */
-        $pdo->prepare(
-            "INSERT INTO lead_reveals
-             (tenant_id, user_id, lead_id, field, device_id, ip, reveal_date)
-             VALUES (?,?,?,?,?,?, CURDATE())"
-        )->execute([
-            $user['tenant_id'], $user['id'], $lead['id'], $field,
-            $device['id'] ?? null, clientIp(),
-        ]);
     }
+
+    /* ── Rule 3: write the ledger row before rendering ──
+     * Unconditional now. Even an uncapped admin lands here. */
+    $pdo->prepare(
+        "INSERT IGNORE INTO lead_reveals
+         (tenant_id, user_id, lead_id, field, device_id, ip, reveal_date)
+         VALUES (?,?,?,?,?,?, CURDATE())"
+    )->execute([
+        $user['tenant_id'], $user['id'], $lead['id'], $field,
+        $device['id'] ?? null, clientIp(),
+    ]);
 }
 
 /* The audit row names the field and the lead but NEVER the value. An
@@ -162,15 +236,29 @@ if (empty($CONFIG['watermark']['enabled']) || !function_exists('imagecreatetruec
     ]);
 }
 
-renderWatermarkedValue($value, $user, $CONFIG);
+renderWatermarkedValue($value, $user, $CONFIG, quotaPayload($pdo, $user, $limit));
 
 
 /* ══ Helpers ═══════════════════════════════════════════════════════ */
 
+/**
+ * The real count for everyone, admins included — it comes from the same
+ * ledger the dashboard and any investigation read, so the three can no
+ * longer disagree about how many reveals happened.
+ *
+ * An uncapped admin (daily_quota = 0) reports limit 0 / left -1, which
+ * the front end reads as "no cap" rather than "spent".
+ */
 function quotaPayload(PDO $pdo, array $user, int $limit): array
 {
-    $used = $user['role'] === 'admin' ? 0 : revealsToday($pdo, $user['tenant_id'], $user['id']);
-    return ['limit' => $limit, 'used' => $used, 'left' => max(0, $limit - $used)];
+    $used     = revealsToday($pdo, $user['tenant_id'], $user['id']);
+    $uncapped = $user['role'] === 'admin' && $limit === 0;
+
+    return [
+        'limit' => $limit,
+        'used'  => $used,
+        'left'  => $uncapped ? -1 : max(0, $limit - $used),
+    ];
 }
 
 /**
@@ -179,19 +267,30 @@ function quotaPayload(PDO $pdo, array $user, int $limit): array
  * anything the client asked for — a rep cannot request a reveal
  * watermarked with somebody else's name.
  */
-function renderWatermarkedValue(string $value, array $user, array $config): void
+function renderWatermarkedValue(string $value, array $user, array $config, array $quota): void
 {
-    $fontSize = (int) ($config['watermark']['font_size'] ?? 13);
-    $pad      = 6;
+    $pad = 6;
 
     /* GD's built-in bitmap fonts are used rather than TrueType so this
-     * works on a stock cPanel PHP without a font file on disk. Font 3 is
-     * ~7x13px. If FreeType is available, imagettftext with the real UI
-     * font would look considerably better — worth doing, not worth
-     * blocking on. */
-    $font   = 3;
-    $charW  = imagefontwidth($font);
-    $charH  = imagefontheight($font);
+     * works on a stock cPanel PHP with no font file on disk. If FreeType
+     * is available, imagettftext with the real UI font would look
+     * considerably better — worth doing, not worth blocking on.
+     *
+     * Those fonts come in five fixed sizes, so config.watermark.font_size
+     * is snapped to the nearest one. It used to be read and then ignored
+     * while font 3 was hard-coded, which made it a setting that silently
+     * did nothing — worse than no setting at all, because someone would
+     * eventually change it and conclude the watermark was broken. */
+    $requested = (int) ($config['watermark']['font_size'] ?? 13);
+
+    if ($requested <= 8)       $font = 1;   // 5x8
+    elseif ($requested <= 11)  $font = 2;   // 6x11
+    elseif ($requested <= 13)  $font = 3;   // 7x13
+    elseif ($requested <= 15)  $font = 5;   // 9x15
+    else                       $font = 4;   // 8x16, the largest
+
+    $charW = imagefontwidth($font);
+    $charH = imagefontheight($font);
 
     $width  = $charW * strlen($value) + $pad * 2;
     $height = $charH + $pad * 2;
@@ -224,6 +323,7 @@ function renderWatermarkedValue(string $value, array $user, array $config): void
     header('Cache-Control: no-store, no-cache, must-revalidate, private');
     header('Pragma: no-cache');
     header('Content-Disposition: inline');
+    header('X-Datafort-Quota: ' . json_encode($quota));
 
     imagepng($img);
     imagedestroy($img);

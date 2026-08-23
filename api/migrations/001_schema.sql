@@ -276,6 +276,7 @@ CREATE TABLE IF NOT EXISTS lead_reveals (
 
   KEY ix_reveals_quota (tenant_id, user_id, reveal_date),
   KEY ix_reveals_lead (lead_id),
+  UNIQUE KEY uq_reveal_once (tenant_id, user_id, lead_id, field),
   CONSTRAINT fk_reveals_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_reveals_lead FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -336,11 +337,30 @@ INSERT INTO tenants (name, slug, default_quota, device_enforcement)
 VALUES ('Movenetics Digital', 'movenetics', 25, 'off')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
--- Password below is 'ChangeMe!2026' — change it on first sign-in.
--- Generated with: password_hash('ChangeMe!2026', PASSWORD_DEFAULT)
+-- ── First administrator ──
+--
+--   admin@moveneticsdigital.com  /  admin@123
+--
+-- ⚠ THIS IS A DEVELOPMENT CREDENTIAL AND IT IS IN VERSION CONTROL.
+--
+-- This repo has a GitHub remote, so anyone who can read the repo knows
+-- this password. It is also far below the policy the app enforces on
+-- every other password (12 chars, upper + lower + digit + symbol) —
+-- auth-reset.php would refuse to set it. It works only because login
+-- checks the hash rather than re-checking the policy.
+--
+-- Before this instance holds one real lead, do BOTH:
+--   1. Sign in and change the password (or delete this row and use
+--      api/setup.php, which enforces the real policy)
+--   2. Confirm the change:
+--      SELECT email, LEFT(password_hash,7) FROM users WHERE role='admin';
+--
+-- Hash below is bcrypt cost 10, generated and round-trip verified
+-- against 'admin@123'. PHP's password_verify() accepts it.
+
 INSERT INTO users (tenant_id, name, email, password_hash, role, daily_quota, status)
 SELECT t.id, 'Administrator', 'admin@moveneticsdigital.com',
-       '$2y$12$Lp8xQvCz9jK7hR2mNwT5UeYbA1sD3fG6hJ9kL0mN2pQ4rS6tU8vWy',
+  '$2b$10$7Bk/l5sK5pPB5U46wFoIS.EqqnhtK6/aNo8COFGaGgHQKkTmImT5u',
        'admin', 0, 'active'
 FROM tenants t WHERE t.slug = 'movenetics'
-ON DUPLICATE KEY UPDATE name = VALUES(name);
+ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash);

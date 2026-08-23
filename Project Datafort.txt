@@ -1,5 +1,5 @@
 PROJECT DATAFORT - REQUIREMENTS
-Last updated: 2026-08-18
+Last updated: 2026-08-19 (rev 2)
 
 
 ====================================================================
@@ -92,9 +92,15 @@ KEY PRINCIPLE
     actor, timestamp, IP and device.
 
 5.5 DYNAMIC DASHBOARD
-    Live tenant-wide view: leads by status, per-rep throughput,
-    conversion funnel, cost per source and ROI per source, plus
-    anomaly signals (who is viewing far more than they are working).
+    Live tenant-wide view: leads by status, per-rep reveals, a
+    14-day reveals-vs-contacts trend, cost per won lead by source,
+    plus anomaly signals (who is viewing far more than they are
+    working).
+
+    NOT ROI. There is no revenue column in the schema, so a return
+    multiple would be invented. The dashboard reports cost per won
+    lead instead, which the data actually supports. Add a revenue
+    field to leads before promising ROI to anyone.
 
 
 ====================================================================
@@ -121,9 +127,12 @@ NORMALISED LEAD SCHEMA
   source_cost, acquired_date, status, owner_id, notes, last_contacted
 
 Note on source_cost: because the pitch is "this data is expensive",
-tracking cost per list and cost per lead lets the dashboard show ROI
-per source. DLP and pendrive blockers structurally cannot do this,
-because they do not know what the data is worth.
+tracking cost per list and cost per lead lets the dashboard report
+cost per won lead by source. DLP and pendrive blockers structurally
+cannot do this, because they do not know what the data is worth.
+
+Full ROI needs a revenue-per-lead figure, which the schema does not
+have yet. Do not claim ROI reporting until it does.
 
 OPEN GAP TO FIX
   After the admin imports the Excel file, the original .xlsx still
@@ -204,6 +213,63 @@ anything that does get captured worthless and traceable.
     Detection is bypassable, but the attempt itself becomes a
     logged security signal.
 
+  ONE VALUE AT A TIME  [CONFIRMED]
+    Only the most recently revealed contact stays unmasked. Revealing
+    another re-masks the previous one, and anything left on screen
+    re-masks itself after 60 seconds or as soon as the window loses
+    focus.
+
+    This is a DISPLAY rule and it sits here in 7.2, not in 7.1. The
+    browser already has the pixels and devtools can keep them. What it
+    genuinely buys is that a screenshot, a phone photo or a glance over
+    a shoulder captures ONE number instead of forty. The daily quota
+    remains the actual cap.
+
+    Re-revealing something already paid for costs no quota, which is
+    what makes the timer humane rather than punitive - otherwise reps
+    would screenshot values to protect themselves against their own
+    allowance, which is the exact habit the product exists to break.
+
+    Implemented in reveal.js. The companion control that IS enforceable
+    lives server-side: lead-reveal.php refuses any reveal issued less
+    than 2 seconds after the last one, which turns a scripted sweep into
+    a slow and noisy one.
+
+  NO PHONES OR TABLETS  [CONFIRMED]
+    Datafort refuses to run on mobile. Two layers:
+
+      desktop-only.js   loaded FIRST in <head> on every page, before any
+                        markup renders, so a handset never paints a lead
+      requireDesktop()  in api/db.php, called from requireAuth() and
+                        auth-login.php, so a spoofed User-Agent or a
+                        direct API call is refused too
+
+    Why, in order of weight:
+      - A phone cannot practically hold the mTLS client certificate, so
+        it can never satisfy the device layer anyway. This says so in
+        plain words instead of failing at the TLS handshake with an
+        unreadable browser error.
+      - None of the 7.2 deterrents work on mobile. No blur-on-focus-loss,
+        no meaningful clipboard block, and screen capture is a two-button
+        reflex on every mobile OS.
+      - A phone is the one machine an employer cannot wipe, inspect or
+        take back on the day somebody resigns.
+
+    Tablets are blocked too. A tablet is not a safer home for a purchased
+    lead list than a phone - it is the same capture surface with a bigger
+    screen. iPadOS 13+ reports itself as "Macintosh", so it is caught by
+    navigator.maxTouchPoints instead of the User-Agent.
+
+    NOT a security control. A User-Agent is attacker-controlled and
+    "request desktop site" defeats the client half in one tap. This is
+    POLICY enforcement - it stops the rep who idly opens Datafort on the
+    bus, not the one deliberately exfiltrating. The control that holds is
+    the certificate.
+
+    Deliberately NOT a screen-width test. A narrow window on a laptop is
+    still a laptop, and blocking it would punish anyone working split
+    screen. Width describes the window, not the machine.
+
   ACCEPTED LIMITATION
     In a browser, screenshots cannot be technically prevented. Raw
     PrintScreen, OS capture tools that do not steal focus, screen
@@ -234,10 +300,28 @@ anything that does get captured worthless and traceable.
     Trade-off: costs accessibility and adds render load. Apply it to
     revealed contact fields only, not the whole screen.
 
-  HONEYTOKENS
-    Seed 2-3 unique fake leads into each rep assigned set. If that
-    list surfaces at a competitor, the fake records identify whose
-    copy leaked. Forensic attribution.
+  HONEYTOKENS  [BUILT - api/honeytoken.php]
+    Unique fake leads seeded into each rep's assigned set. If that list
+    surfaces at a competitor, the fake records identify whose copy
+    leaked. Count is tenants.honeytokens_per_rep.
+
+    Seeded on ASSIGNMENT, not on import: a decoy sitting in the
+    unassigned pool identifies nobody.
+
+    Decoys borrow the tenant's most common city, industry and source so
+    they blend in. A decoy from an unfamiliar city is not a decoy, it is
+    a signpost. Contact details are +91 90000xxxxx and @example.com -
+    deliberately unreachable, because a decoy that dials a real stranger
+    turns an internal security measure into harassment.
+
+    leads-list.php returns honeytoken:false for non-admins. Anything new
+    that reads leads must do the same: a rep who can spot a decoy simply
+    avoids it, and attribution stops working.
+
+    NOTE: this shipped LATE. The column, the admin marker, the reveal
+    alert and the setting all existed for some time with nothing writing
+    a decoy row - attribution was described but absent. Do not describe
+    a security feature as shipped until something exercises it.
 
   ANOMALY ALERTS
     Real-time admin alert on: unusual reveal rate, access at odd
@@ -379,7 +463,9 @@ SHARED
   guard.js        clipboard/print/devtools blocks, blur-on-focus-loss
   watermark.js    per-user forensic watermark (7.3)
   charts.js       inline-SVG figures
-  mock-data.js    sample tenant — DELETE when the API lands
+  api.js          the only place the front end talks to the server
+  settings.js     tenant policy page
+  devices.js      company laptop register
 
 GUARD SCOPE  [DECIDED]
   guard.js and guard.css load on REP pages only (my-leads, lead).
@@ -397,28 +483,21 @@ CHART PALETTE — VALIDATED, NOT EYEBALLED
   Status colours (new/working/won/lost) are a separate reserved
   palette and never double as a categorical series.
 
-BACKEND — BUILT (see section 14)
-  Every page runs on mock-data.js and shows an amber "sample data"
-  bar. Nothing persists. These endpoints are referenced by the front
-  end and do not exist:
+BACKEND — BUILT AND WIRED (see section 14)
+  mock-data.js has been DELETED. Every page now reads live data
+  through api.js. There is no sample-data mode and no amber banner
+  left anywhere — if the database is empty the pages show empty
+  states, which is the honest result.
 
-    api/auth-login.php       sign in, rate limit, lockout, device trust
-    api/auth-forgot.php      reset link, identical response either way
-    api/auth-reset.php       consume token, set password, kill sessions
-    api/session.php          who am I
-    api/lead-reveal.php      QUOTA CHECK + audit row + watermarked PNG
-    api/lead-email.php       relay send, address never leaves the server
-    api/leads-*.php          list, assign, recall, update status
-    api/import-*.php         upload, parse XLSX, dedup, commit
-    api/users-*.php          create, set quota, suspend
-    api/audit-list.php       read-only, filtered
-    api/security-event.php   batched events from guard.js
+  21 endpoints, all present and all called. Full list in
+  api/README.md.
 
-  api/lead-reveal.php is the one that carries the product. It must
-  re-check the quota server-side on EVERY call and refuse a client
+  api/lead-reveal.php is the one that carries the product. It
+  re-checks the quota server-side on EVERY call and refuses a client
   that lies about its remaining count.
 
-  There must be no api/export-*.php. Ever.
+  There is no api/export-*.php and there must never be one.
+
 
 
 ====================================================================
@@ -583,10 +662,114 @@ APPEND-ONLY IS A GRANT, NOT A PROMISE
   REVOKE UPDATE, DELETE ON datafort.audit_log FROM the app user.
   Without it, a SQL injection anywhere can erase the evidence trail.
 
+DATABASE — LIVE
+  folksfi1_datafort on localhost, user folksfi1_moutasim.
+  Credentials live in api/config.php, which is gitignored and blocked
+  from web access by api/.htaccess. Verify after deploying:
+      curl -I https://<host>/api/config.php     must return 403
+
+FIRST RUN
+  1. mysql -u folksfi1_moutasim -p folksfi1_datafort < api/migrations/001_schema.sql
+  2. OPTIONAL, test data only:
+     mysql -u folksfi1_moutasim -p folksfi1_datafort < api/migrations/002_test_data.sql
+  3. Sign in at /login.html
+
+TEST ACCOUNTS  [in version control - change before real data]
+  admin@moveneticsdigital.com   admin@123    seeded by 001_schema.sql
+  priya@moveneticsdigital.com   test@123     rep, quota 40
+  rahul@moveneticsdigital.com   test@123     rep, quota 40, heavy user
+  aisha@moveneticsdigital.com   test@123     rep, quota 25, ALREADY SPENT
+  vikram@moveneticsdigital.com  test@123     rep, quota 40, light usage
+  sneha@moveneticsdigital.com   test@123     rep, SUSPENDED
+
+  admin@123 is 8 characters with no uppercase and no symbol. It is
+  below the policy the app enforces everywhere else - auth-reset.php
+  would refuse to set it - and it works only because login checks the
+  hash rather than re-checking the policy. It is also readable by
+  anyone with access to the GitHub remote.
+
+  api/setup.php still exists for creating an admin properly, with the
+  real policy enforced. Delete it from the server when finished.
+
+  002_test_data.sql seeds 240 leads, 5 reps, 5 sources, 7 devices, a
+  reveal ledger, 14 days of audit history and device denials. Contact
+  details are +91 90000xxxxx and @example.com - deliberately
+  unreachable, so a test reveal cannot dial or email a real person.
+
+  No admin account is seeded by the migration. A password hash in a
+  migration file is a shared secret in version control, and the
+  account it creates is reachable by anyone who reads the repo.
+
+SECURITY FINDINGS - AUDIT, FIXED
+  STORED XSS (would have been serious)
+    Datafort.escape() and the charts esc() helper escaped & < > but not
+    quotes, and both are used inside HTML attributes. A lead imported
+    with the name  " onmouseover="...  closed the attribute and injected
+    a handler.
+
+    Lead names come from the customer's spreadsheet, so they are
+    attacker-controlled the moment anyone imports a file they were sent.
+    The payload ran in the ADMIN's session - which can read every lead,
+    change every quota and switch device enforcement off. The session
+    cookie is httpOnly so it could not be stolen directly, but the
+    injected script did not need it: it could just call the API as the
+    admin.
+
+    Both helpers now escape " and ' as well.
+
+    Lesson worth keeping: textContent -> innerHTML is the usual way to
+    escape in JS and it does NOT escape quotes. It is safe between tags
+    and quietly broken inside an attribute.
+
+  BURST LIMIT WAS BYPASSABLE
+    The 2-second rate limit sat inside the "not already paid" branch, so
+    a rep who had legitimately revealed 40 numbers across a day could
+    script a loop and pull all 40 back as images in seconds. Re-reveals
+    are free by design, which made the hole free to walk through. Now
+    covers every attempt.
+
+  LIBRARIES WERE WEB-REACHABLE
+    xlsx.php and honeytoken.php were not in the api/.htaccess deny list.
+    honeytoken.php is the one that matters: it is the only file that
+    describes how decoys are generated, and anyone who reads it can
+    strip them out of a stolen list before selling it.
+
+  ADMIN/UI INCONSISTENCIES FROM THE LEDGER CHANGE
+    Admin reveals now write to lead_reveals, but users.js still said
+    "Not applicable" and the dashboard counted reps only. Both fixed.
+    Uncapped reveals get their own tile rather than being added to a
+    quota meter they contribute no denominator to.
+
+  CONFIG OPTION THAT DID NOTHING
+    watermark.font_size was read and then ignored while GD font 3 was
+    hard-coded. A setting that silently does nothing is worse than no
+    setting - someone eventually changes it and concludes the watermark
+    is broken. It now snaps to the nearest GD bitmap font.
+
 STILL MISSING
-  - XLSX parsing (needs PhpSpreadsheet); CSV preview works
-  - Dashboard endpoints — index.html still reads mock-data.js
-  - 2FA verification (schema only)
-  - CSRF tokens (currently SameSite=Strict + JSON content type)
-  - PHP was never linted — no PHP binary on the build machine.
-    Run php -l over every file before deploying.
+  - 2FA verification. users.totp_secret exists; nothing checks it.
+  - CSRF tokens. Currently mitigated by SameSite=Strict cookies plus a
+    JSON content type. Add real tokens before any endpoint accepts
+    form-encoded input.
+  - Session management UI. A session can only be killed by suspending
+    the user or changing their password.
+  - Rule-based assignment (round-robin, territory). Manual only.
+  - Old binary .xls. Only .xlsx and .csv are read.
+  - Revenue per lead, so the dashboard can report real ROI rather than
+    cost per won lead.
+  - Backups. None exist. Nightly encrypted dump plus a REHEARSED
+    restore - an untested backup is not a backup.
+  - PHP WAS NEVER LINTED. No PHP binary on the build machine. Brace,
+    paren and opening-tag structure were checked mechanically across all
+    31 files and are consistent, but that is not a syntax check.
+    Run php -l over api/*.php before deploying.
+
+SHIPPED SINCE THE LAST REVISION
+  - One-at-a-time reveal with a 60s auto re-mask (reveal.js), plus a
+    server-side 2-second burst limit in lead-reveal.php
+  - Honeytoken seeding (api/honeytoken.php) - attribution is now real
+  - Admin reveals write to lead_reveals; uncapped but counted
+  - XLSX import (api/xlsx.php) - no Composer, XXE off, zip-bomb ceiling
+  - account.html + auth-change-password.php - a user can change their
+    own password without going through the reset email
+  - Admin lead detail route from the Leads table

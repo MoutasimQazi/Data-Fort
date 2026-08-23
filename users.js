@@ -1,19 +1,26 @@
-/* users.js — accounts, roles and the daily reveal quota.
+/* users.js — the team grid.
  *
- * The quota field on this page is the single most important control in
- * the product. Everything else deters; this one caps.
+ * Every row is a link into user.html, where the admin sets that rep's
+ * daily leads, reads their logs and sees whether yesterday's batch was
+ * finished. This page stays a scannable overview: the one screen that
+ * answers "is anyone falling behind" without clicking anything.
+ *
+ * Two numbers per rep, and they are NOT the same thing:
+ *
+ *   Daily leads   how many land in their queue each day   (workload)
+ *   Reveal quota  how many contacts they may unmask       (exposure)
  */
 (function () {
   'use strict';
 
-  var M = window.MOCK;
   var D = window.Datafort;
+  var API = window.DatafortAPI;
 
-  var rowsEl  = document.getElementById('rows');
-  var qEl     = document.getElementById('q');
-  var roleEl  = document.getElementById('roleFilter');
+  var rowsEl = document.getElementById('rows');
+  var qEl    = document.getElementById('q');
+  var roleEl = document.getElementById('roleFilter');
 
-  var editing = null;   // user being edited in the quota modal
+  var users = [];
 
 
   /* ══ Render ════════════════════════════════════════════════════ */
@@ -24,17 +31,46 @@
     return '<span class="badge badge--won">Active</span>';
   }
 
+  /* Yesterday, at a glance.
+   *
+   * The point of this column is that an admin should not have to open
+   * five users to find the one who is behind. "Cleared" and "8 left"
+   * are both short enough to scan down a list. */
+  function yesterdayCell(u) {
+    if (u.role === 'admin') return '<span style="color:var(--text-faint)">—</span>';
+
+    var y = u.yesterday || {};
+
+    if (!y.assigned) {
+      return '<span style="color:var(--text-faint)">None assigned</span>';
+    }
+    if (y.pending === 0) {
+      return '<span class="badge badge--won">Cleared</span>';
+    }
+
+    var cls = y.percent >= 60 ? 'badge--working' : 'badge--lost';
+    return '<span class="badge ' + cls + '">' + y.pending + ' left</span>' +
+           ' <span style="color:var(--text-faint);font-size:12px">' +
+           y.worked + '/' + y.assigned + '</span>';
+  }
+
   function usageCell(u) {
+    /* Admins have no CAP — a quota on the person who sets quotas is
+     * theatre — but their reveals ARE counted, so the number is shown.
+     * Saying "not applicable" while lead_reveals filled up with their
+     * activity was the blind spot that let an admin account read the
+     * whole book unmeasured. */
     if (u.role === 'admin') {
-      // Admins have no quota. They are the tenant's trusted party, and a
-      // quota on the person who sets quotas is theatre.
-      return '<span style="color:var(--text-faint)">Not applicable</span>';
+      return u.usedToday > 0
+        ? '<span style="font-variant-numeric:tabular-nums">' + u.usedToday +
+          ' <span style="color:var(--text-faint);font-size:12px">· no cap</span></span>'
+        : '<span style="color:var(--text-faint)">None today · no cap</span>';
     }
 
     var pct = u.quota ? Math.min(100, (u.usedToday / u.quota) * 100) : 0;
     var level = pct >= 100 ? 'danger' : pct >= 80 ? 'warn' : 'ok';
 
-    return '<div class="quota" style="min-width:140px">' +
+    return '<div class="quota" style="min-width:130px">' +
       '<div class="quota__row">' +
         '<span class="quota__count">' + u.usedToday + ' / ' + u.quota + '</span>' +
         '<span style="color:var(--text-faint)">' + Math.round(pct) + '%</span>' +
@@ -48,17 +84,25 @@
     var term = qEl.value.trim().toLowerCase();
     var role = roleEl.value;
 
-    var list = M.users.filter(function (u) {
+    var list = users.filter(function (u) {
       if (role && u.role !== role) return false;
       if (!term) return true;
       return (u.name + ' ' + u.email).toLowerCase().indexOf(term) !== -1;
     });
 
+    if (!list.length) {
+      rowsEl.innerHTML =
+        '<tr><td colspan="9"><div class="empty" style="padding:34px">' +
+        '<p style="margin:0">No users match.</p></div></td></tr>';
+      return;
+    }
+
     rowsEl.innerHTML = list.map(function (u) {
-      return '<tr data-id="' + u.id + '">' +
+      return '<tr data-id="' + u.userId + '" class="rowlink" tabindex="0" ' +
+             'role="link" aria-label="Open ' + D.escape(u.name) + '">' +
         '<td><div style="display:flex;gap:10px;align-items:center">' +
           '<span class="avatar" style="width:30px;height:30px;font-size:11.5px">' +
-            D.initials(u.name) + '</span>' +
+            D.escape(D.initials(u.name)) + '</span>' +
           '<div class="cellstack"><span>' + D.escape(u.name) + '</span>' +
           '<span class="sub">' + D.escape(u.email) + '</span></div>' +
         '</div></td>' +
@@ -66,106 +110,38 @@
           ? '<span class="badge badge--plain badge--idle">Administrator</span>'
           : '<span class="badge badge--plain badge--idle">Sales rep</span>') + '</td>' +
         '<td class="num">' + (u.role === 'admin' ? '—' : u.assigned.toLocaleString()) + '</td>' +
+        '<td>' + yesterdayCell(u) + '</td>' +
         '<td>' + usageCell(u) + '</td>' +
         '<td class="num">' + (u.role === 'admin' ? '—' :
-          '<strong>' + u.quota + '</strong>') + '</td>' +
+          '<strong>' + (u.dailyTarget || 0) + '</strong>') + '</td>' +
+        '<td class="num">' + (u.role === 'admin' ? '—' : '<strong>' + u.quota + '</strong>') + '</td>' +
         '<td>' + stateBadge(u) + '</td>' +
-        '<td>' + D.ago(u.lastSeen) + '</td>' +
-        '<td class="shrink" style="white-space:nowrap">' +
-          (u.role === 'rep'
-            ? '<button class="btn btn--ghost btn--sm" data-act="quota">Quota</button> '
-            : '') +
-          '<button class="btn btn--ghost btn--sm" data-act="toggle">' +
-            (u.status === 'suspended' ? 'Restore' : 'Suspend') + '</button>' +
-        '</td>' +
+        '<td>' + (u.lastSeen ? D.ago(u.lastSeen) :
+          '<span style="color:var(--text-faint)">Never</span>') + '</td>' +
       '</tr>';
     }).join('');
   }
 
 
-  /* ══ Quota editing ═════════════════════════════════════════════ */
+  /* ══ Row navigation ════════════════════════════════════════════ */
 
-  var quotaInput = document.getElementById('quotaInput');
-  var quotaErr   = document.getElementById('quotaErr');
-  var quotaHint  = document.getElementById('quotaHint');
-
-  function openQuota(user) {
-    editing = user;
-    document.getElementById('quotaWho').textContent =
-      user.name + ' currently has ' + user.assigned.toLocaleString() +
-      ' leads assigned and has used ' + user.usedToday + ' reveals today.';
-    quotaInput.value = user.quota;
-    quotaErr.textContent = '';
-    hint();
-    D.openModal('quotaModal');
+  function open(id) {
+    location.href = 'user.html?id=' + encodeURIComponent(id);
   }
-
-  /* Translates the abstract number into working days, which is how a
-   * sales manager actually thinks about it. A quota that looks cautious
-   * on paper can mean a rep never gets through their book. */
-  function hint() {
-    var n = parseInt(quotaInput.value, 10);
-    if (!editing || isNaN(n) || n <= 0) {
-      quotaHint.hidden = n === 0 ? false : true;
-      if (n === 0) {
-        quotaHint.textContent =
-          'A quota of 0 blocks every reveal. The rep keeps their assigned ' +
-          'leads but cannot unmask any contact details.';
-      }
-      return;
-    }
-
-    var days = Math.ceil(editing.assigned / n);
-    quotaHint.hidden = false;
-    quotaHint.textContent =
-      'At ' + n + ' reveals a day, ' + editing.name + ' would need about ' +
-      days + ' working day' + (days === 1 ? '' : 's') +
-      ' to work through their ' + editing.assigned.toLocaleString() + ' assigned leads.';
-  }
-
-  quotaInput.addEventListener('input', hint);
-
-  document.getElementById('quotaSave').addEventListener('click', function () {
-    var n = parseInt(quotaInput.value, 10);
-
-    if (isNaN(n) || n < 0) {
-      quotaErr.textContent = 'Enter a number of 0 or more.';
-      return;
-    }
-    if (n > 500) {
-      quotaErr.textContent = 'Cap is 500 a day. Above that the quota stops being a control.';
-      return;
-    }
-
-    editing.quota = n;
-    D.closeModal('quotaModal');
-    render();
-    D.toast('Quota for ' + editing.name + ' set to ' + n + '/day. (Not saved — no API yet.)', 'ok');
-  });
-
-
-  /* ══ Row actions ═══════════════════════════════════════════════ */
 
   rowsEl.addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-act]');
-    if (!btn) return;
+    var tr = e.target.closest('tr[data-id]');
+    if (tr) open(tr.dataset.id);
+  });
 
-    var id = btn.closest('tr').dataset.id;
-    var user = M.users.filter(function (u) { return u.id === id; })[0];
-    if (!user) return;
-
-    if (btn.dataset.act === 'quota') { openQuota(user); return; }
-
-    if (btn.dataset.act === 'toggle') {
-      /* Suspension does NOT unassign the leads. Recalling them is a
-       * separate, deliberate act on the Leads page — a suspended rep
-       * whose book is silently emptied makes the leak investigation
-       * harder, not easier. */
-      user.status = user.status === 'suspended' ? 'active' : 'suspended';
-      render();
-      D.toast(user.name + ' ' + (user.status === 'suspended' ? 'suspended' : 'restored') +
-              '. Assigned leads are unchanged.', 'ok');
-    }
+  // Keyboard parity. A grid that only responds to a mouse is a grid an
+  // admin cannot use one-handed while on a call.
+  rowsEl.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var tr = e.target.closest('tr[data-id]');
+    if (!tr) return;
+    e.preventDefault();
+    open(tr.dataset.id);
   });
 
 
@@ -177,32 +153,40 @@
     var role  = document.getElementById('newRole').value;
     var quota = parseInt(document.getElementById('newQuota').value, 10) || 0;
 
-    if (!name || !email) {
-      D.toast('Name and email are required.', 'error');
-      return;
-    }
+    if (!name || !email) { D.toast('Name and email are required.', 'error'); return; }
 
-    M.users.push({
-      id: 'u-' + Math.floor(Math.random() * 900 + 100),
-      name: name, email: email, role: role,
-      quota: role === 'admin' ? 0 : quota,
-      usedToday: 0, assigned: 0, status: 'active',
-      lastSeen: new Date().toISOString()
-    });
+    var btn = this;
+    btn.disabled = true;
 
-    D.closeModal('inviteModal');
-    render();
-    D.toast('Invite queued for ' + name + '. (Not sent — no API yet.)', 'ok');
+    API.saveUser({ action: 'create', name: name, email: email, role: role, quota: quota })
+      .then(function () {
+        D.closeModal('inviteModal');
+        document.getElementById('newName').value = '';
+        document.getElementById('newEmail').value = '';
+        D.toast('Invite sent to ' + email + '. The link sets their first password.', 'ok');
+        load();
+      })
+      .catch(D.fail)
+      .then(function () { btn.disabled = false; });
   });
 
-  // Quota field is meaningless for an admin, so it hides itself.
+  // Quota is meaningless for an admin.
   document.getElementById('newRole').addEventListener('change', function (e) {
     document.getElementById('newQuota').closest('.field').hidden = e.target.value === 'admin';
   });
 
 
+  /* ══ Load ══════════════════════════════════════════════════════ */
+
+  function load() {
+    API.users().then(function (res) {
+      users = res.users;
+      render();
+    }).catch(D.fail);
+  }
+
   qEl.addEventListener('input', render);
   roleEl.addEventListener('change', render);
 
-  render();
+  D.ready(load);
 })();

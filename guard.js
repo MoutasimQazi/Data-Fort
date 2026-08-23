@@ -28,6 +28,48 @@
 
   var REPORT_URL = 'api/security-event.php';
 
+  /* ── Who gets hardened ──
+   *
+   * Reps. Not admins.
+   *
+   * lead.html is now reachable by an administrator (the Leads table
+   * links to it), and this file used to harden anyone who loaded the
+   * page. An admin who cannot copy a lead reference out of the detail
+   * view to paste into the audit log filter cannot do their job, and
+   * the admin is the tenant's trusted party — the whole reason
+   * admin pages skip guard.css in the first place.
+   *
+   * The WATERMARK still applies to everyone. Deterring copy is about
+   * friction and only makes sense for the role being contained;
+   * attribution is about knowing whose screen it was, which matters
+   * for every role.
+   */
+  var hardened = false;
+
+  function activate() {
+    if (hardened) return;
+    hardened = true;
+    document.documentElement.setAttribute('data-guarded', 'true');
+  }
+
+  /* app.js resolves the session asynchronously. Until it does, assume
+   * the stricter setting — a rep page that briefly allowed copying
+   * while the session loaded would be a real gap, whereas an admin
+   * briefly unable to copy is a moment of friction. */
+  activate();
+
+  if (window.Datafort && window.Datafort.ready) {
+    window.Datafort.ready(function (session) {
+      if (session.role === 'admin') {
+        hardened = false;
+        document.documentElement.removeAttribute('data-guarded');
+      }
+    });
+  }
+
+  /** Every block below defers to this. */
+  function guarding() { return hardened; }
+
   /* Events are batched rather than sent one-per-keystroke. Someone
    * mashing Ctrl+C twenty times should cost one request, not twenty. */
   var queue = [];
@@ -76,7 +118,7 @@
   ['copy', 'cut'].forEach(function (evt) {
     document.addEventListener(evt, function (e) {
       // Inputs are exempt: a rep typing a note must be able to edit it.
-      if (isEditable(e.target)) return;
+      if (!guarding() || isEditable(e.target)) return;
       e.preventDefault();
       report('clipboard_blocked', evt);
       toast('Copying is disabled. This attempt has been logged.');
@@ -84,14 +126,14 @@
   });
 
   document.addEventListener('contextmenu', function (e) {
-    if (isEditable(e.target)) return;
+    if (!guarding() || isEditable(e.target)) return;
     e.preventDefault();
     report('contextmenu_blocked');
   });
 
   document.addEventListener('dragstart', function (e) {
     // Dragging selected text into another window is a clipboard bypass.
-    if (isEditable(e.target)) return;
+    if (!guarding() || isEditable(e.target)) return;
     e.preventDefault();
     report('drag_blocked');
   });
@@ -106,6 +148,8 @@
   /* ══ Keyboard ══════════════════════════════════════════════════ */
 
   document.addEventListener('keydown', function (e) {
+    if (!guarding()) return;
+
     var k = (e.key || '').toLowerCase();
     var mod = e.ctrlKey || e.metaKey;
 
@@ -218,9 +262,4 @@
       window.Datafort.toast(message, 'error');
     }
   }
-
-
-  // Marks the page as hardened so CSS can react (see the .is-shrouded
-  // and print rules in app.css / guard styles below).
-  document.documentElement.setAttribute('data-guarded', 'true');
 })();

@@ -4,30 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Import · Datafort</title>
-  <link rel="icon" href="brand/datafort-icon.svg" type="image/svg+xml">
+  <link rel="icon" href="brand/favicon.ico" sizes="any">
+  <link rel="icon" href="brand/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
   <meta name="robots" content="noindex, nofollow">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=1">
-  <link rel="stylesheet" href="app.css?v=1">
-  <script src="theme.js?v=1"></script>
+  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="app.css?v=4">
+  <!-- FIRST script on the page. Turns phones and tablets away before
+       any markup renders — see desktop-only.js. -->
+  <script src="desktop-only.js?v=4"></script>
+  <script src="theme.js?v=4"></script>
 </head>
 
-<body>
+<body data-requires="admin">
 
 <div class="shell">
 
   <aside class="side">
     <div class="side__brand">
-      <svg viewBox="0 0 120 128" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M12 18 h22 v14 h12 V18 h28 v14 h12 V18 h22 v66 l-48 38 -48 -38 Z M30 40 v36 l30 24 30 -24 V40 Z"/>
-        <path d="M38 46 L60 57 L82 46 L82 57 L60 68 L38 57 Z"/>
-        <path d="M38 60 L60 71 L82 60 L82 71 L60 82 L38 71 Z"/>
-        <path d="M38 74 L60 85 L82 74 L82 85 L60 96 L38 85 Z"/>
-      </svg>
+      <img src="brand/logo-mark-light.png" width="363" height="414"
+           alt="" aria-hidden="true">
       <span class="word">DATAFORT</span>
     </div>
 
@@ -36,8 +37,8 @@
       Dashboard
     </a>
     <a class="navlink" href="leads.html">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-      Leads
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.1a4 4 0 0 1 0 7.75"/></svg>
+      Assign Leads
     </a>
     <a class="navlink" href="import.html">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
@@ -94,10 +95,6 @@
       </button>
     </div>
 
-    <div class="mockbar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-      <span>Sample flow. CSV files are parsed in your browser for preview only — nothing is uploaded or saved.</span>
-    </div>
 
     <div class="content">
 
@@ -122,9 +119,9 @@
                  aria-label="Choose a spreadsheet to import">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
               <strong>Drop a spreadsheet here</strong>
-              <span>.csv, .xlsx or .xls — or click to browse</span>
+              <span>.csv or .xlsx — or click to browse</span>
             </div>
-            <input type="file" id="file" accept=".csv,.xlsx,.xls" hidden>
+            <input type="file" id="file" accept=".csv,.xlsx" hidden>
 
             <div class="alert alert--info" id="fileInfo" hidden style="margin-top:16px"></div>
 
@@ -280,8 +277,8 @@
   </div>
 </div>
 
-<script src="mock-data.js?v=1"></script>
-<script src="app.js?v=1"></script>
-<script src="import.js?v=1"></script>
+<script src="api.js?v=4"></script>
+<script src="app.js?v=4"></script>
+<script src="import.js?v=4"></script>
 </body>
 </html>

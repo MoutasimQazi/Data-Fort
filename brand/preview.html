@@ -3,92 +3,109 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Datafort - brand preview</title>
+<title>FolksFirst Labs - brand preview</title>
+<link rel="icon" href="favicon.ico" sizes="any">
 <style>
-  :root { --navy:#14213D; --blue:#1E6BF1; --off:#F4F6F8; }
+  :root { --ink:#0B0B0C; --chrome:#16161A; --brand:#B91917; --lift:#D62B23; --off:#F5F5F6; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:'Segoe UI',Inter,system-ui,sans-serif; background:var(--off); color:var(--navy); }
+  body { margin:0; font-family:'Segoe UI',Inter,system-ui,sans-serif; background:var(--off); color:var(--ink); }
   header { padding:32px 40px 8px; }
   h1 { margin:0; font-size:20px; letter-spacing:.5px; }
-  p.sub { margin:6px 0 0; color:#6B7280; font-size:13px; }
-  .row { display:flex; flex-wrap:wrap; gap:0; margin-top:32px; }
+  h2 { margin:36px 40px 0; font-size:12px; letter-spacing:1.6px; text-transform:uppercase; color:#6B6B75; }
+  p.sub { margin:6px 0 0; color:#6B6B75; font-size:13px; }
+  .row { display:flex; flex-wrap:wrap; gap:0; margin-top:16px; }
   .cell { flex:1 1 240px; min-height:240px; display:flex; flex-direction:column;
           align-items:center; justify-content:center; gap:18px; padding:32px 16px; }
   .cell span { font-size:11px; letter-spacing:1.5px; text-transform:uppercase; opacity:.6; }
-  .on-navy  { background:var(--navy); color:#fff; }
-  .on-white { background:#fff; color:var(--navy); }
-  .on-black { background:#000; color:#fff; }
-  .on-off   { background:var(--off); color:var(--navy); }
-  .lockup { padding:48px 40px; background:#fff; display:flex; align-items:center; gap:28px; }
-  .lockup .word { font-size:56px; font-weight:700; letter-spacing:1.5px; }
-  .sizes { display:flex; align-items:flex-end; gap:28px; padding:40px; background:#fff; flex-wrap:wrap; }
+  .on-chrome { background:var(--chrome); color:#fff; }
+  .on-white  { background:#fff; }
+  .on-black  { background:#000; color:#fff; }
+  .on-off    { background:var(--off); }
+  .on-brand  { background:var(--brand); color:#fff; }
+  .lockup { padding:48px 40px; background:#fff; display:flex; align-items:center; gap:40px; flex-wrap:wrap; }
+  .sizes { display:flex; align-items:flex-end; gap:28px; padding:32px 40px; background:#fff; flex-wrap:wrap; }
   .sizes figure { margin:0; text-align:center; }
-  .sizes figcaption { font-size:11px; color:#6B7280; margin-top:8px; }
-  .swatches { display:flex; flex-wrap:wrap; gap:0; }
-  .sw { flex:1 1 140px; height:110px; display:flex; flex-direction:column;
+  .sizes figcaption { font-size:11px; color:#6B6B75; margin-top:8px; }
+  .swatches { display:flex; flex-wrap:wrap; gap:0; margin-top:16px; }
+  .sw { flex:1 1 150px; height:118px; display:flex; flex-direction:column;
         justify-content:flex-end; padding:12px; font-size:11px; line-height:1.5; }
-  .note { padding:24px 40px 48px; font-size:13px; color:#6B7280; max-width:70ch; line-height:1.6; }
-  .note strong { color:var(--navy); }
+  .note { padding:24px 40px 48px; font-size:13px; color:#6B6B75; max-width:74ch; line-height:1.65; }
+  .note strong { color:var(--ink); }
+  .bad { outline:3px solid #DC2626; outline-offset:-3px; position:relative; }
+  .bad::after { content:'DO NOT'; position:absolute; top:10px; right:10px; font-size:9px;
+                letter-spacing:1.2px; background:#DC2626; color:#fff; padding:3px 6px; border-radius:3px; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Datafort — brand preview</h1>
-  <p class="sub">Vector rebuild. Compare against the original artwork before approving.</p>
+  <h1>FolksFirst Labs — brand preview</h1>
+  <p class="sub">Rendered from brand/logo.png. Palette values are eyedropped from that file, not estimated.</p>
 </header>
 
-<!-- Full colour lockup -->
+<h2>Lockup — stacked (primary)</h2>
 <div class="lockup">
-  <img src="datafort-icon.svg" width="88" alt="Datafort mark">
-  <div class="word">DATAFORT</div>
+  <img src="logo.png" width="240" alt="FolksFirst Labs">
 </div>
 
-<!-- Background variants -->
+<h2>Lockup — horizontal (wide, short spaces)</h2>
+<div class="lockup">
+  <img src="logo-horizontal.png" width="380" alt="FolksFirst Labs">
+</div>
+<div class="lockup" style="background:#16161A">
+  <img src="logo-horizontal-light.png" width="186" alt="FolksFirst Labs">
+  <span style="color:#71717B;font-size:11px;letter-spacing:1.5px">186 PX — ACTUAL SIDEBAR SIZE</span>
+</div>
+
+<h2>Backgrounds</h2>
 <div class="row">
-  <div class="cell on-navy">
-    <img src="datafort-icon-mono.svg" width="72" alt="" style="filter:brightness(0) invert(1)">
-    <span>Dark background</span>
-  </div>
-  <div class="cell on-white">
-    <img src="datafort-icon-mono.svg" width="72" alt="">
-    <span>Black version</span>
-  </div>
-  <div class="cell on-black">
-    <img src="datafort-icon-mono.svg" width="72" alt="" style="filter:brightness(0) invert(1)">
-    <span>White version</span>
-  </div>
-  <div class="cell on-off">
-    <img src="datafort-icon.svg" width="72" alt="">
-    <span>Light background</span>
-  </div>
+  <div class="cell on-white"><img src="logo-mark.png" width="86" alt=""><span>Light — logo.png</span></div>
+  <div class="cell on-off"><img src="logo-mark.png" width="86" alt=""><span>Off white — logo.png</span></div>
+  <div class="cell on-chrome"><img src="logo-mark-light.png" width="86" alt=""><span>Chrome — knockout</span></div>
+  <div class="cell on-black"><img src="logo-mark-light.png" width="86" alt=""><span>Black — knockout</span></div>
+  <div class="cell on-chrome bad"><img src="logo-mark.png" width="86" alt=""><span>Full colour on dark</span></div>
 </div>
 
-<!-- Size test -->
+<h2>Size test — mark</h2>
 <div class="sizes">
-  <figure><img src="datafort-icon.svg" width="128" alt=""><figcaption>128 px</figcaption></figure>
-  <figure><img src="datafort-icon.svg" width="64" alt=""><figcaption>64 px</figcaption></figure>
-  <figure><img src="datafort-icon.svg" width="32" alt=""><figcaption>32 px</figcaption></figure>
-  <figure><img src="datafort-icon.svg" width="24" alt=""><figcaption>24 px — minimum</figcaption></figure>
-  <figure><img src="datafort-icon.svg" width="16" alt=""><figcaption>16 px — breaks down</figcaption></figure>
+  <figure><img src="logo-mark.png" width="128" alt=""><figcaption>128 px</figcaption></figure>
+  <figure><img src="logo-mark.png" width="64" alt=""><figcaption>64 px</figcaption></figure>
+  <figure><img src="logo-mark.png" width="32" alt=""><figcaption>32 px</figcaption></figure>
+  <figure><img src="logo-mark.png" width="24" alt=""><figcaption>24 px — minimum</figcaption></figure>
+  <figure><img src="favicon.png" width="16" alt=""><figcaption>16 px — use favicon.ico</figcaption></figure>
 </div>
 
-<!-- Palette -->
+<h2>Palette</h2>
 <div class="swatches">
-  <div class="sw" style="background:#14213D;color:#fff">Fort Navy<br>#14213D</div>
-  <div class="sw" style="background:#1E6BF1;color:#fff">Signal Blue<br>#1E6BF1</div>
-  <div class="sw" style="background:#F4F6F8;color:#14213D">Off White<br>#F4F6F8</div>
-  <div class="sw" style="background:#000;color:#fff">Ink Black<br>#000000</div>
-  <div class="sw" style="background:#fff;color:#14213D;box-shadow:inset 0 0 0 1px #E5E7EB">Pure White<br>#FFFFFF</div>
+  <div class="sw" style="background:#B91917;color:#fff">FolksFirst Red<br>#B91917</div>
+  <div class="sw" style="background:#9C1513;color:#fff">Red Deep<br>#9C1513</div>
+  <div class="sw" style="background:#D62B23;color:#fff">Red Lift<br>#D62B23</div>
+  <div class="sw" style="background:#FDECEB;color:#0B0B0C">Red Tint<br>#FDECEB</div>
+  <div class="sw" style="background:#0B0B0C;color:#fff">Ink Black<br>#0B0B0C</div>
+  <div class="sw" style="background:#16161A;color:#fff">Chrome Ink<br>#16161A</div>
+  <div class="sw" style="background:#F5F5F6;color:#0B0B0C;box-shadow:inset 0 0 0 1px #E4E4E7">Off White<br>#F5F5F6</div>
+  <div class="sw" style="background:#fff;color:#0B0B0C;box-shadow:inset 0 0 0 1px #E4E4E7">Pure White<br>#FFFFFF</div>
+</div>
+
+<h2>Functional</h2>
+<div class="swatches">
+  <div class="sw" style="background:#DC2626;color:#fff">Alert Red<br>#DC2626</div>
+  <div class="sw" style="background:#F59E0B;color:#0B0B0C">Warning Amber<br>#F59E0B</div>
+  <div class="sw" style="background:#16A34A;color:#fff">Success Green<br>#16A34A</div>
 </div>
 
 <p class="note">
-  <strong>Check the 16 px row.</strong> The three data layers merge at favicon size,
-  which is expected — a simplified favicon mark is still to be produced.
-  <strong>The wordmark above uses a font stack, not the real typeface.</strong>
-  Confirm the original font with the designer before production.
-  Hex values are eyedropper estimates from the shared image; verify them against
-  the source file.
+  <strong>Alert red and brand red are the same hue</strong> and cannot be told apart by
+  colour alone. They are separated by treatment: brand red takes solid fills (primary
+  button, active nav), alert red takes tints, outlines and transient toasts only. A
+  destructive button rebuilt as a solid red fill becomes indistinguishable from Save.
+  <br><br>
+  <strong>The knockout variant is not optional.</strong> The inner figure and wordmark in
+  logo.png are near-black — on dark chrome they vanish, as the marked panel above shows.
+  Use logo-light.png / logo-mark-light.png on anything dark.
+  <br><br>
+  <strong>logo.png is raster.</strong> It soft-edges on large hero placements and in print.
+  A vector original is still to be sourced from the designer.
 </p>
 
 </body>

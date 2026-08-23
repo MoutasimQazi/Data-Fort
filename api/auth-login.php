@@ -15,6 +15,10 @@ require_once __DIR__ . '/auth.php';
 
 requireMethod('POST');
 
+// Refuse phones before a password is even read. A rep on a handset
+// should be told why, not left guessing at a rejected credential.
+requireDesktop();
+
 $in       = body();
 $email    = strtolower(trim((string) ($in['email'] ?? '')));
 $password = (string) ($in['password'] ?? '');

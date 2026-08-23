@@ -15,9 +15,14 @@
 # config.php holds live database credentials. db.php, auth.php and
 # device.php are libraries; requesting them directly runs them with no
 # context and no guard.
-<FilesMatch "^(config|config\.sample|db|auth|device)\.php$">
+<FilesMatch "^(config|config\.sample|db|auth|device|honeytoken|xlsx)\.php$">
     Require all denied
 </FilesMatch>
+
+# honeytoken.php in particular: it is the only file that knows how decoy
+# records are generated. Anyone who can read it can work out which leads
+# in a stolen list are seeded and strip them out, which destroys
+# attribution entirely.
 
 # Schema files describe the live database.
 <FilesMatch "\.(sql|md|log|bak|save|swp)$">

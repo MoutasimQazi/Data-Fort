@@ -50,7 +50,19 @@ try {
 } catch (PDOException $e) {
     error_log('[datafort] db connect failed: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Database connection failed']);
+
+    /* The real MySQL message names the user, the host and the exact
+     * refusal — "Access denied for user 'x'@'localhost'" — which is
+     * precisely what you need during setup and precisely what you do
+     * not want leaking to the internet afterwards.
+     *
+     * So it is gated on config.debug, which ships false. Turn it on to
+     * get set up, turn it off before this instance holds a real lead. */
+    echo json_encode([
+        'error' => empty($CONFIG['debug'])
+            ? 'Database connection failed'
+            : 'Database connection failed: ' . $e->getMessage(),
+    ]);
     exit;
 }
 
@@ -74,7 +86,13 @@ function respond(array $payload, int $status = 200): void
 }
 
 /**
- * Refuse and stop.
+ * Refuse and stop, logging the real reason server-side.
+ *
+ * NOT CURRENTLY CALLED. Every endpoint reaches for respond() with a 4xx
+ * instead, which loses the server-side log line. Kept because the split
+ * it encodes is the right one and endpoints should migrate to it — but
+ * a helper nothing uses is a helper nobody maintains, so if it is still
+ * unused at the next pass, delete it.
  *
  * Messages returned to the client are deliberately vague about WHY
  * something failed wherever the reason would tell an attacker
@@ -161,6 +179,47 @@ function audit(PDO $pdo, int $tenantId, ?array $user, string $action, ?string $s
         ]);
     } catch (Throwable $e) {
         error_log('[datafort] audit write failed: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Refuses phones and tablets.
+ *
+ * Datafort's containment model assumes a company laptop. A phone cannot
+ * practically hold the mTLS client certificate, no browser-side
+ * deterrent in guard.js works there, and it is the one device an
+ * employer cannot wipe or reclaim.
+ *
+ * desktop-only.js blocks this in the browser, before any markup paints.
+ * This is the second half: without it, "request desktop site" or a
+ * spoofed User-Agent would let a phone talk straight to the API and
+ * skip the page entirely.
+ *
+ * ── BE CLEAR ABOUT WHAT THIS IS ──
+ *
+ * A User-Agent is attacker-controlled. Anyone who wants to get past
+ * this can, with one header. It is POLICY enforcement, not a security
+ * control — it stops the rep who idly opens Datafort on the bus, not
+ * the one deliberately exfiltrating.
+ *
+ * The control that actually holds is the client certificate: with
+ * device enforcement on, a phone is refused because it has none,
+ * whatever it claims to be.
+ */
+function requireDesktop(): void
+{
+    $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+
+    // An empty User-Agent is curl, a script, or something hiding. Not a
+    // phone, and not this function's problem — auth handles those.
+    if ($ua === '') return;
+
+    if (preg_match('/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Windows Phone|Mobile|Tablet|Silk|Kindle/i', $ua)) {
+        respond([
+            'error'        => 'Datafort is not available on phones or tablets. ' .
+                              'Sign in from your company laptop.',
+            'mobile_blocked' => true,
+        ], 403);
     }
 }
 

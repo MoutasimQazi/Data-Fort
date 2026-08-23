@@ -118,7 +118,7 @@ body.is-inspected .lead-contact {
   background-repeat: repeat;
 }
 
-:root[data-theme="dark"] .watermark { opacity: .075; }
+:root[data-theme="dark"] .watermark { opacity: .085; }
 
 @media print {
   /* If the print block is ever bypassed, the watermark must survive it. */

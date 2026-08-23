@@ -125,6 +125,170 @@ switch ($action) {
             $ctx['device']);
         break;
 
+    case 'target':
+        /* Daily lead TARGET, not the reveal quota. Two different numbers
+         * doing two different jobs:
+         *
+         *   target  how many leads land in their queue each day  (workload)
+         *   quota   how many contacts they may unmask each day   (exposure)
+         *
+         * A rep can hold 200 leads and still be capped at 25 reveals.
+         * Conflating them either starves them of work or hands over the
+         * whole book. */
+        $wantTarget = (int) ($in['target'] ?? -1);
+        if ($wantTarget < 0 || $wantTarget > 500) {
+            respond(['error' => 'Daily lead target must be between 0 and 500.'], 400);
+        }
+
+        $pdo->prepare("UPDATE users SET daily_lead_target = ? WHERE id = ?")
+            ->execute([$wantTarget, $targetId]);
+
+        audit($pdo, $tid, $user, 'user', $target['email'],
+            'Daily lead target ' . ($target['daily_lead_target'] ?? 0) . ' -> ' . $wantTarget,
+            $ctx['device']);
+        break;
+
+    case 'assign_daily':
+        /* Hands this rep their day's leads out of the unassigned pool.
+         *
+         * Tops UP to the target rather than adding the target on top of
+         * what is already there. Otherwise clicking twice doubles the
+         * batch, and an admin who cannot remember whether they already
+         * pressed it will press it again. */
+        if ($target['role'] !== 'rep') {
+            respond(['error' => 'Only sales reps are given a daily book of leads.'], 400);
+        }
+        if ($target['status'] === 'suspended') {
+            respond(['error' => 'That rep is suspended. Restore the account first.'], 409);
+        }
+
+        $want = (int) ($in['count'] ?? $target['daily_lead_target'] ?? 0);
+        if ($want <= 0 || $want > 500) {
+            respond(['error' => 'Choose between 1 and 500 leads.'], 400);
+        }
+
+        $already = $pdo->prepare(
+            "SELECT COUNT(*) FROM leads
+             WHERE tenant_id = ? AND owner_id = ? AND DATE(assigned_at) = CURDATE()"
+        );
+        $already->execute([$tid, $targetId]);
+        $have = (int) $already->fetchColumn();
+
+        $need = max(0, $want - $have);
+
+        if ($need === 0) {
+            respond([
+                'ok' => true, 'assigned' => 0,
+                'message' => $target['name'] . ' already has ' . $have .
+                             ' leads assigned today - nothing to top up.',
+            ]);
+        }
+
+        /* Oldest first. A purchased list decays: the longer a lead sits
+         * unassigned the less it is worth. Handing out the freshest ones
+         * first would quietly guarantee the bottom of the list is never
+         * worked at all. */
+        $ids = [];
+        $pdo->beginTransaction();
+        try {
+            $pick = $pdo->prepare(
+                "SELECT id FROM leads
+                 WHERE tenant_id = ? AND owner_id IS NULL
+                 ORDER BY acquired_date ASC, id ASC
+                 LIMIT " . (int) $need . "
+                 FOR UPDATE"
+            );
+            $pick->execute([$tid]);
+            $ids = $pick->fetchAll(PDO::FETCH_COLUMN);
+
+            if ($ids) {
+                $ph = implode(',', array_fill(0, count($ids), '?'));
+                $pdo->prepare(
+                    "UPDATE leads SET owner_id = ?, assigned_at = NOW() WHERE id IN ($ph)"
+                )->execute(array_merge([$targetId], $ids));
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            error_log('[datafort] daily assign failed: ' . $e->getMessage());
+            respond(['error' => 'Assignment failed. Nothing was changed.'], 500);
+        }
+
+        $gave = count($ids);
+
+        /* Top the decoys up in the same breath. A book that grew without
+         * them is a book with a gap in its attribution. */
+        try {
+            require_once __DIR__ . '/honeytoken.php';
+            seedHoneytokens($pdo, $tid, $targetId,
+                (int) ($ctx['tenant']['honeytokens_per_rep'] ?? 0), $user);
+        } catch (Throwable $e) {
+            error_log('[datafort] honeytoken top-up failed: ' . $e->getMessage());
+        }
+
+        audit($pdo, $tid, $user, 'assign', $target['email'],
+            $gave . ' leads assigned for today (target ' . $want . ', already had ' . $have . ')',
+            $ctx['device']);
+
+        respond([
+            'ok'        => true,
+            'assigned'  => $gave,
+            'shortfall' => max(0, $need - $gave),
+            'message'   => $gave . ' leads assigned to ' . $target['name'] . '.' .
+                ($gave < $need
+                    ? ' The unassigned pool ran out - ' . ($need - $gave) .
+                      ' short. Import more leads.'
+                    : ''),
+        ]);
+
+    case 'set_password':
+        /* An administrator setting somebody else's password.
+         *
+         * Deliberately does NOT ask for the target's current password -
+         * the entire point is that they have lost access to it. That
+         * makes this a real account-takeover primitive, so: admin only,
+         * audited by name, and every session the target had is
+         * destroyed. A password change that left their sessions alive
+         * would be the ideal way to hide inside somebody's account.
+         *
+         * This endpoint does not notify the user. Tell them yourself -
+         * a password that changes with no warning reads as a breach. */
+        $newPw = (string) ($in['password'] ?? '');
+
+        if (strlen($newPw) < 12
+            || !preg_match('/[a-z]/', $newPw)
+            || !preg_match('/[A-Z]/', $newPw)
+            || !preg_match('/\d/', $newPw)
+            || !preg_match('/[^\w\s]/', $newPw)) {
+            respond([
+                'error' => 'Password must be at least 12 characters with upper and lower case, a number and a symbol.',
+            ], 400);
+        }
+
+        $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+            ->execute([password_hash($newPw, PASSWORD_DEFAULT), $targetId]);
+
+        $killed = $pdo->prepare(
+            "UPDATE sessions SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL"
+        );
+        $killed->execute([$targetId]);
+
+        /* Clear the throttle, or they are locked out by their own
+         * earlier failed attempts with the old password. */
+        $pdo->prepare("DELETE FROM login_attempts WHERE email = ?")->execute([$target['email']]);
+
+        audit($pdo, $tid, $user, 'user', $target['email'],
+            'Password set by administrator - ' . $killed->rowCount() . ' sessions revoked',
+            $ctx['device']);
+
+        respond([
+            'ok'      => true,
+            'message' => 'Password set for ' . $target['name'] . '. ' .
+                         $killed->rowCount() . ' active session(s) ended. ' .
+                         'Tell them the new password yourself.',
+        ]);
+
     default:
         respond(['error' => 'Unknown action'], 400);
 }

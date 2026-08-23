@@ -1,16 +1,18 @@
 /* audit.js — the append-only record.
  *
- * This page is read-only by design. There is no edit, no delete and no
- * export button, and none of those are missing features. A log an admin
- * can prune is not evidence, and an export is an unmasked copy of every
- * reveal the tenant has ever made — the exact artefact the product
- * exists to prevent.
+ * Read-only by design. There is no edit, no delete and no export, and
+ * none of those are missing features. A log an admin can prune is not
+ * evidence, and an export is an unmasked copy of every reveal the
+ * tenant has ever made.
  */
 (function () {
   'use strict';
 
-  var M = window.MOCK;
   var D = window.Datafort;
+  var API = window.DatafortAPI;
+
+  var PAGE = 100;
+  var offset = 0;
 
   var rowsEl  = document.getElementById('rows');
   var emptyEl = document.getElementById('emptyState');
@@ -19,66 +21,98 @@
   var actEl   = document.getElementById('actionFilter');
   var whoEl   = document.getElementById('actorFilter');
 
-  whoEl.innerHTML = '<option value="">All users</option>' +
-    M.users.map(function (u) {
-      return '<option value="' + u.id + '">' + D.escape(u.name) + '</option>';
-    }).join('');
+  var entries = [];
+  var total = 0;
 
-  /* Actions carry weight, not just a label. A reveal and a blocked copy
-   * are the two rows an investigator scans for, so they are the two that
-   * get colour; everything else stays neutral. */
+  /* A reveal and a blocked action are the two rows an investigator
+   * scans for, so they are the two that get colour. Everything else
+   * stays neutral — colouring all of it colours none of it. */
   var TONE = {
-    reveal:  'badge--new',
-    blocked: 'badge--lost',
-    import:  'badge--working',
-    assign:  'badge--idle',
-    login:   'badge--idle',
-    view:    'badge--idle',
-    status:  'badge--idle',
-    email:   'badge--idle'
+    reveal:   'badge--new',
+    blocked:  'badge--lost',
+    import:   'badge--working',
+    device:   'badge--working',
+    settings: 'badge--working'
   };
 
   var LABEL = {
     reveal: 'Reveal', blocked: 'Blocked', import: 'Import', assign: 'Assign',
-    login: 'Sign-in', view: 'View', status: 'Status', email: 'Relay email'
+    login: 'Sign-in', view: 'View', status: 'Status', email: 'Relay email',
+    device: 'Device', user: 'User', settings: 'Settings'
   };
 
   function render() {
-    var term = qEl.value.trim().toLowerCase();
-    var action = actEl.value;
-    var actor = whoEl.value;
+    countEl.textContent = total.toLocaleString() + ' entr' + (total === 1 ? 'y' : 'ies');
+    emptyEl.hidden = entries.length > 0;
 
-    var list = M.audit.filter(function (a) {
-      if (action && a.action !== action) return false;
-      if (actor && a.actorId !== actor) return false;
-      if (!term) return true;
-      return (a.actor + ' ' + a.subject + ' ' + a.ip + ' ' + a.device)
-        .toLowerCase().indexOf(term) !== -1;
-    });
+    rowsEl.innerHTML = entries.map(function (a) {
+      var when = String(a.at || '').replace(' ', 'T');
 
-    countEl.textContent = list.length.toLocaleString() + ' entries' +
-      (list.length !== M.audit.length ? ' of ' + M.audit.length.toLocaleString() : '') +
-      ' · retained 7 years';
-
-    emptyEl.hidden = list.length > 0;
-
-    rowsEl.innerHTML = list.map(function (a) {
       return '<tr>' +
         '<td><div class="cellstack"><span>' + D.ago(a.at) + '</span>' +
-          '<span class="sub">' + new Date(a.at).toLocaleString() + '</span></div></td>' +
-        '<td>' + D.escape(a.actor) + '</td>' +
+          '<span class="sub">' + D.escape(new Date(when).toLocaleString()) + '</span></div></td>' +
+        '<td>' + D.escape(a.actor || 'System') + '</td>' +
         '<td><span class="badge badge--plain ' + (TONE[a.action] || 'badge--idle') + '">' +
-          (LABEL[a.action] || a.action) + '</span></td>' +
-        '<td>' + D.escape(a.text) + (a.subject ? ' <strong>' + D.escape(a.subject) + '</strong>' : '') + '</td>' +
-        '<td style="font-variant-numeric:tabular-nums">' + D.escape(a.ip) + '</td>' +
-        '<td style="font-family:ui-monospace,monospace;font-size:12px">' + D.escape(a.device) + '</td>' +
+          D.escape(LABEL[a.action] || a.action) + '</span></td>' +
+        '<td>' + D.escape(a.text || '') +
+          (a.subject ? ' <strong>' + D.escape(a.subject) + '</strong>' : '') + '</td>' +
+        '<td style="font-variant-numeric:tabular-nums">' + D.escape(a.ip || '—') + '</td>' +
+        '<td style="font-family:ui-monospace,monospace;font-size:12px">' +
+          D.escape(a.device || '—') + '</td>' +
       '</tr>';
     }).join('');
   }
 
-  qEl.addEventListener('input', render);
-  actEl.addEventListener('change', render);
-  whoEl.addEventListener('change', render);
+  function params() {
+    return {
+      q: qEl.value.trim(),
+      action: actEl.value,
+      actor: whoEl.value,
+      limit: PAGE,
+      offset: offset
+    };
+  }
 
-  render();
+  function reload() {
+    offset = 0;
+    entries = [];
+    fetchPage();
+  }
+
+  function fetchPage() {
+    API.audit(params()).then(function (res) {
+      entries = entries.concat(res.entries);
+      total = res.total;
+      render();
+    }).catch(D.fail);
+  }
+
+  var searchTimer = null;
+  qEl.addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(reload, 280);
+  });
+  actEl.addEventListener('change', reload);
+  whoEl.addEventListener('change', reload);
+
+  D.ready(function () {
+    /* user.js links here with ?actor=<id> so "full audit log" from a
+     * person's page lands pre-filtered on that person. */
+    var preset = new URLSearchParams(location.search).get('actor');
+
+    API.users().then(function (res) {
+      whoEl.innerHTML = '<option value="">All users</option>' +
+        res.users.map(function (u) {
+          return '<option value="' + u.userId + '">' + D.escape(u.name) + '</option>';
+        }).join('');
+
+      // Apply the preset only after the options exist, or the value
+      // silently does not stick.
+      if (preset) whoEl.value = preset;
+      reload();
+    }).catch(function () {
+      /* The filter dropdown is optional; the log itself still loads. */
+      reload();
+    });
+  });
 })();

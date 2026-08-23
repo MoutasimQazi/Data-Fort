@@ -23,7 +23,7 @@
 .brandside {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(155deg, #101B33 0%, var(--navy) 45%, #16264C 100%);
+  background: linear-gradient(155deg, #101012 0%, var(--ink) 45%, #1E1214 100%);
   color: var(--on-dark);
   padding: 48px 52px;
   display: flex;
@@ -38,7 +38,7 @@
   position: absolute;
   top: -18%; left: -12%;
   width: 70%; aspect-ratio: 1;
-  background: radial-gradient(circle, rgba(30,107,241,.38), transparent 68%);
+  background: radial-gradient(circle, rgba(185, 25, 23, .48), transparent 68%);
   filter: blur(42px);
   animation: drift 22s ease-in-out infinite alternate;
   pointer-events: none;
@@ -57,7 +57,9 @@
   gap: 13px;
 }
 
-.brandside__logo svg { width: 38px; height: auto; color: #fff; }
+/* Mark only — the product name beside it is live text. See .side__brand
+ * in app.css for why the FolksFirst wordmark is not used here. */
+.brandside__logo img { width: 42px; height: auto; }
 
 .brandside__logo .word {
   font-family: var(--font-head);
@@ -74,7 +76,7 @@
   letter-spacing: -.02em;
   margin-bottom: 14px;
 }
-.brandside__tag span { color: #7FAAFB; display: block; }
+.brandside__tag span { color: #F1736A; display: block; }
 
 .brandside__blurb {
   color: var(--on-dark-dim);
@@ -104,8 +106,8 @@
   width: 19px; height: 19px;
   margin-top: 1px;
   border-radius: 50%;
-  background: rgba(30, 107, 241, .3);
-  color: #9CC0FC;
+  background: rgba(214, 43, 35, .32);
+  color: #F5978F;
   font-size: 11px;
   display: grid;
   place-items: center;
@@ -238,7 +240,7 @@
   cursor: pointer;
   user-select: none;
 }
-.check input { accent-color: var(--blue); width: 15px; height: 15px; cursor: pointer; }
+.check input { accent-color: var(--brand); width: 15px; height: 15px; cursor: pointer; }
 
 /* Spinner shown inside the submit button while the request is in flight. */
 .spinner {

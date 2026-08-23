@@ -42,16 +42,17 @@
    * A tiled background has no per-tile DOM node, so there is nothing to
    * delete one instance of — it is removed wholesale or not at all,
    * which is a much more visible act. */
-  function tile() {
+  function tile(color) {
     var s = session();
     var line1 = esc(s.name + ' · ' + s.id);
     var line2 = esc(stamp());
+    var ink = esc(color || '#0B0B0C');
 
     var svg =
       '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180">' +
         '<g transform="rotate(-24 150 90)" ' +
            'font-family="Inter, Segoe UI, sans-serif" font-size="13" ' +
-           'font-weight="600" fill="currentColor" text-anchor="middle">' +
+           'font-weight="600" fill="' + ink + '" text-anchor="middle">' +
           '<text x="150" y="84">' + line1 + '</text>' +
           '<text x="150" y="102" font-size="11" font-weight="400">' + line2 + '</text>' +
         '</g>' +
@@ -77,10 +78,12 @@
       document.body.appendChild(layer);
     }
 
-    // currentColor inside the SVG resolves against this element's colour,
-    // so the mark follows the theme without a second data URI.
-    layer.style.color = 'var(--text)';
-    layer.style.backgroundImage = tile();
+    // Data-URI SVGs do not reliably inherit currentColor from the element,
+    // so embed the resolved theme colour directly in the tile.
+    var color = getComputedStyle(document.documentElement)
+      .getPropertyValue('--text').trim();
+    layer.style.color = color;
+    layer.style.backgroundImage = tile(color);
   }
 
   function start() {

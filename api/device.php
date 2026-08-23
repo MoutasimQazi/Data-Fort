@@ -121,6 +121,37 @@ function clientCertificate(): array
 function logDeviceAuth(PDO $pdo, array $cert, string $outcome, string $reason, ?array $device = null, ?int $tenantId = null): void
 {
     try {
+        /* ── Throttle repeats ──
+         *
+         * In 'log' mode a browser with no certificate is denied on EVERY
+         * request. One person browsing for a minute writes dozens of
+         * identical rows, which fills device_auth_log and buries the
+         * dashboard feed under the same line over and over.
+         *
+         * So an identical denial — same reason, same IP, same serial —
+         * is written at most once every 10 minutes. Nothing is lost that
+         * matters: the point of this table is "which machines were
+         * refused and why", not "how many times did the page reload".
+         *
+         * ALLOWED rows are never throttled. Those are the ones an
+         * investigation walks backwards through, and a gap in them is a
+         * gap in the evidence. */
+        if ($outcome === 'denied') {
+            $recent = $pdo->prepare(
+                "SELECT 1 FROM device_auth_log
+                 WHERE outcome = 'denied' AND reason = ? AND ip <=> ?
+                   AND certificate_serial <=> ?
+                   AND at > DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+                 LIMIT 1"
+            );
+            $recent->execute([
+                $reason,
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $cert['serial'] !== '' ? normaliseSerial($cert['serial']) : null,
+            ]);
+            if ($recent->fetchColumn()) return;
+        }
+
         $stmt = $pdo->prepare(
             "INSERT INTO device_auth_log
              (tenant_id, device_id, device_code, certificate_serial, certificate_subject,

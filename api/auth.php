@@ -92,6 +92,12 @@ function endSession(PDO $pdo, array $config): void
  */
 function requireAuth(PDO $pdo, array $config, string $role = 'any'): array
 {
+    /* Phones and tablets, before anything else. One call here covers
+     * every protected endpoint, so nobody has to remember to add it —
+     * a check you must remember is a check that gets forgotten on the
+     * next endpoint somebody writes. */
+    requireDesktop();
+
     $tenant = currentTenant($pdo, $config);
 
     // ── 1. Device ──

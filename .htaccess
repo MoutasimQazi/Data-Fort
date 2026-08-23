@@ -65,13 +65,6 @@
     RedirectMatch 404 ^/apache/
 </IfModule>
 
-# mock-data.js is sample data for development. It must not exist in
-# production at all — this is a safety net, not a substitute for
-# deleting it.
-<FilesMatch "^mock-data\.js$">
-    Require all denied
-</FilesMatch>
-
 
 # ══ Headers ═══════════════════════════════════════════════════════
 <IfModule mod_headers.c>
@@ -96,11 +89,14 @@
 # the current markup — worth removing later by moving them into the
 # stylesheets, at which point this can be tightened to 'self' only.
 #
-# data: is allowed for images because revealed contact values render as
-# canvas data URIs in the mock. Once api/lead-reveal.php serves real
-# PNGs, drop data: from img-src.
+# img-src needs BOTH:
+#   data:  for the inline SVG chevron baked into .select in app.css
+#   blob:  for revealed contact values. api/lead-reveal.php returns a
+#          PNG, api.js wraps it with URL.createObjectURL, and that
+#          produces a blob: URL. Without blob: here, every reveal shows
+#          a broken image and the only clue is a console CSP violation.
 <IfModule mod_headers.c>
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 </IfModule>
 
 

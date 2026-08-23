@@ -2,22 +2,22 @@
  *
  * Five steps, and the fifth is the one that matters. Steps 1-4 move the
  * data in; step 5 gets the original spreadsheet out of the world. An
- * import that stops at step 4 leaves the product protecting a copy
- * while the source file is still forwardable — see requirements 6.
+ * import that stops at step 4 leaves Datafort protecting a copy while
+ * the source file is still forwardable — requirements section 6.
  *
- * CSV is parsed here purely to build the column mapper without a round
- * trip. XLSX is NOT parsed in the browser: it needs a real library, and
- * a spreadsheet from an unknown source is exactly the kind of file that
- * should be opened by a hardened server parser (PhpSpreadsheet), never
- * by the admin's browser.
+ * CSV is parsed here only to build the column mapper without a round
+ * trip. The real parse happens in api/import-commit.php. XLSX is not
+ * supported yet — it needs PhpSpreadsheet, and a spreadsheet from an
+ * unknown source should be opened by a hardened server parser rather
+ * than by the administrator's browser.
  */
 (function () {
   'use strict';
 
   var D = window.Datafort;
+  var API = window.DatafortAPI;
 
-  /* The canonical schema from requirements section 6. Every source
-   * normalises into these fields. */
+  /* The canonical schema from requirements section 6. */
   var FIELDS = [
     { key: '',             label: '— Do not import —' },
     { key: 'name',         label: 'Contact name' },
@@ -35,8 +35,8 @@
     { key: 'notes',        label: 'Notes' }
   ];
 
-  /* Header guesses. Saves the admin mapping 14 dropdowns by hand on the
-   * common case, which is a list exported from a marketplace. */
+  /* Header guesses — saves mapping 14 dropdowns by hand on the common
+   * case, which is a list exported from a marketplace. */
   var GUESS = {
     name: /^(name|full ?name|contact|contact ?name|person)$/i,
     company: /^(company|company ?name|organisation|organization|firm|business)$/i,
@@ -56,25 +56,24 @@
   var state = {
     file: null,
     headers: [],
+    // For CSV: every data row. For XLSX: an 8-row sample from the server,
+    // because the workbook is never opened in the browser.
     rows: [],
-    mapping: {},      // column index -> field key
-    isCsv: false
+    // Real row count when `rows` is only a sample; null when it is not.
+    totalRows: null,
+    mapping: {},
+    sourceId: null
   };
 
 
   /* ══ Steps ═════════════════════════════════════════════════════ */
 
-  var current = 1;
-
   function go(step) {
-    current = step;
-
     for (var i = 1; i <= 5; i++) {
       document.getElementById('panel' + i).hidden = (i !== step);
       var chip = document.querySelector('.step[data-step="' + i + '"]');
       chip.dataset.state = i < step ? 'done' : i === step ? 'active' : '';
     }
-
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -111,39 +110,115 @@
 
   function handleFile(file) {
     state.file = file;
-    state.isCsv = /\.csv$/i.test(file.name);
+
+    /* Reset the sample marker. Choosing an .xlsx and then a .csv would
+     * otherwise leave totalRows set from the workbook, and the review
+     * step would report the CSV's exact counts as estimates. */
+    state.totalRows = null;
+    state.headers = [];
+    state.rows = [];
 
     document.getElementById('fileNameEcho').textContent = file.name;
 
     fileInfo.hidden = false;
+    fileInfo.className = 'alert alert--info';
     fileInfo.textContent = file.name + ' · ' + (file.size / 1024).toFixed(0) + ' KB';
 
-    if (state.isCsv) {
-      var reader = new FileReader();
-      reader.onload = function () {
-        parseCsv(String(reader.result));
-        buildMapper();
-        go(2);
-      };
-      reader.readAsText(file);
-    } else {
-      /* No client-side XLSX. Rather than pretend, the wizard says what
-       * will happen and lets the admin proceed to a server-side parse. */
-      fileInfo.textContent += ' — Excel files are parsed on the server. ' +
-        'Column mapping will appear once the upload finishes.';
-      D.toast('XLSX parsing needs the API. Try a .csv to preview the flow.', 'error', 6000);
+    if (/\.xls$/i.test(file.name)) {
+      /* The old binary .xls is a different container entirely and needs
+       * a real library to read. Excel converts it in two clicks, which
+       * is a better trade than carrying that code. */
+      fileInfo.className = 'alert alert--error';
+      fileInfo.textContent =
+        'The older .xls format is not supported. Open ' + file.name +
+        ' in Excel and use Save As to produce .xlsx or CSV.';
+      state.file = null;
+      return;
     }
+
+    if (/\.xlsx$/i.test(file.name)) {
+      /* Excel goes straight to the server, which parses it with
+       * api/xlsx.php. Nothing is read here: a workbook from an unknown
+       * source is exactly the file that should be opened by a hardened
+       * server parser rather than in the administrator's browser.
+       *
+       * The consequence is that the column mapper cannot be pre-filled
+       * from the file — so the headers are fetched in a preview pass. */
+      fileInfo.className = 'alert alert--info';
+      fileInfo.textContent = file.name + ' · reading columns on the server…';
+      loadXlsxHeaders(file);
+      return;
+    }
+
+    if (!/\.csv$/i.test(file.name)) {
+      fileInfo.className = 'alert alert--error';
+      fileInfo.textContent = 'Import accepts .csv and .xlsx files only.';
+      state.file = null;
+      return;
+    }
+
+    var reader = new FileReader();
+    reader.onload = function () {
+      parseCsv(String(reader.result));
+
+      if (!state.headers.length || !state.rows.length) {
+        fileInfo.className = 'alert alert--error';
+        fileInfo.textContent = 'That file has no readable rows. Check it has a header row and data.';
+        state.file = null;
+        return;
+      }
+
+      buildMapper();
+      go(2);
+    };
+    reader.onerror = function () {
+      fileInfo.className = 'alert alert--error';
+      fileInfo.textContent = 'Could not read that file.';
+      state.file = null;
+    };
+    reader.readAsText(file);
   }
 
-  /* Minimal CSV reader: handles quoted fields, embedded commas and
-   * doubled quotes. Not a full RFC 4180 implementation — the server
-   * parser is the authority, this only has to be good enough to name
-   * the columns. */
+  /* Asks the server for the header row and a few sample rows so the
+   * mapper and the review step can be built without the browser ever
+   * opening the workbook. */
+  function loadXlsxHeaders(file) {
+    var form = new FormData();
+    form.append('file', file);
+    form.append('preview', '1');
+
+    API.importCommit(form).then(function (res) {
+      state.headers = res.headers || [];
+      state.rows    = res.sample  || [];
+      state.totalRows = res.totalRows || state.rows.length;
+
+      if (!state.headers.length) {
+        fileInfo.className = 'alert alert--error';
+        fileInfo.textContent = 'That workbook has no header row.';
+        state.file = null;
+        return;
+      }
+
+      fileInfo.className = 'alert alert--info';
+      fileInfo.textContent = file.name + ' · ' +
+        state.totalRows.toLocaleString() + ' rows, ' + state.headers.length + ' columns';
+
+      buildMapper();
+      go(2);
+
+    }).catch(function (err) {
+      fileInfo.className = 'alert alert--error';
+      fileInfo.textContent = err.message || 'That workbook could not be read.';
+      state.file = null;
+    });
+  }
+
+  /* Minimal CSV reader: quoted fields, embedded commas, doubled quotes.
+   * Not a full RFC 4180 implementation — import-commit.php re-parses
+   * server-side and is the authority. This only has to be good enough to
+   * name the columns. */
   function parseCsv(text) {
-    var rows = [];
-    var row = [];
-    var field = '';
-    var inQuotes = false;
+    var rows = [], row = [], field = '', inQuotes = false;
 
     for (var i = 0; i < text.length; i++) {
       var c = text[i];
@@ -156,10 +231,10 @@
         continue;
       }
 
-      if (c === '"') { inQuotes = true; }
+      if (c === '"') inQuotes = true;
       else if (c === ',') { row.push(field); field = ''; }
       else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-      else if (c !== '\r') { field += c; }
+      else if (c !== '\r') field += c;
     }
     if (field || row.length) { row.push(field); rows.push(row); }
 
@@ -183,9 +258,9 @@
     document.getElementById('mapSub').textContent =
       state.headers.length + ' columns · ' + state.rows.length.toLocaleString() + ' rows found';
 
-    var host = document.getElementById('mapRows');
+    state.mapping = {};
 
-    host.innerHTML = state.headers.map(function (h, idx) {
+    document.getElementById('mapRows').innerHTML = state.headers.map(function (h, idx) {
       var guess = guessField(h);
       state.mapping[idx] = guess;
 
@@ -207,8 +282,7 @@
     }).join('');
   }
 
-  /* Delegated once at load rather than per buildMapper() call — choosing
-   * a second file would otherwise stack a duplicate listener. */
+  // Delegated once — choosing a second file would otherwise stack listeners.
   document.getElementById('mapRows').addEventListener('change', function (e) {
     var sel = e.target.closest('[data-col]');
     if (sel) state.mapping[sel.dataset.col] = sel.value;
@@ -238,7 +312,7 @@
     if (kind === 'phone') {
       var digits = value.replace(/\D/g, '');
       return digits.length > 4
-        ? value.slice(0, value.length - 6) + '****' + digits.slice(-2)
+        ? value.slice(0, Math.max(0, value.length - 6)) + '****' + digits.slice(-2)
         : '****';
     }
     var at = value.indexOf('@');
@@ -248,43 +322,62 @@
 
   function buildReview() {
     var rows = mappedRows();
+    var cost = parseFloat(document.getElementById('sourceCost').value) || 0;
 
-    // Dedup on phone first, email second — a purchased list repeats the
-    // same company under different contacts far more often than it
-    // repeats the same phone number.
-    var seen = {};
-    var dupes = 0;
-    var noContact = 0;
+    /* For CSV the browser holds every row, so the dedup counts here are
+     * exact. For XLSX it holds only the 8-row sample the server returned
+     * — counting duplicates across 8 of 40,000 rows and presenting the
+     * result as a total would be a plain lie, so those tiles say so and
+     * the real numbers come back from the import itself. */
+    var sampled = state.totalRows !== null && state.totalRows > rows.length;
+    var totalRows = sampled ? state.totalRows : rows.length;
 
-    rows.forEach(function (r) {
-      var key = (r.phone || '').replace(/\D/g, '') || (r.email || '').toLowerCase();
-      if (!key) { noContact++; return; }
-      if (seen[key]) dupes++;
-      seen[key] = true;
-    });
+    var tiles;
 
-    var usable = rows.length - dupes - noContact;
-    var cost = parseInt(document.getElementById('sourceCost').value, 10) || 0;
+    if (sampled) {
+      tiles = [
+        { label: 'Rows in file',  value: totalRows.toLocaleString(), note: 'after the header' },
+        { label: 'Will import',   value: '—', note: 'counted during import' },
+        { label: 'Duplicates',    value: '—', note: 'removed by the server' },
+        { label: 'No contact',    value: '—', note: 'counted during import' },
+        { label: 'Cost per lead', value: cost > 0 ? '≈ ' + D.money(cost / totalRows) : '—',
+          note: D.money(cost) + ' total, before dedup' }
+      ];
+    } else {
+      // Same dedup rule the server applies: phone digits first, else email.
+      var seen = {}, dupes = 0, noContact = 0;
 
-    document.getElementById('reviewTiles').innerHTML = [
-      { label: 'Rows in file',   value: rows.length.toLocaleString(), note: 'after the header' },
-      { label: 'Will import',    value: usable.toLocaleString(),      note: 'unique, with a contact' },
-      { label: 'Duplicates',     value: dupes.toLocaleString(),       note: 'skipped' },
-      { label: 'No contact',     value: noContact.toLocaleString(),   note: 'no phone or email' },
-      { label: 'Cost per lead',  value: usable ? D.money((cost / usable).toFixed(1)) : '—',
-        note: D.money(cost) + ' total' }
-    ].map(function (t) {
+      rows.forEach(function (r) {
+        var key = (r.phone || '').replace(/\D/g, '') || (r.email || '').toLowerCase();
+        if (!key) { noContact++; return; }
+        if (seen[key]) dupes++;
+        seen[key] = true;
+      });
+
+      var usable = rows.length - dupes - noContact;
+
+      tiles = [
+        { label: 'Rows in file',  value: rows.length.toLocaleString(), note: 'after the header' },
+        { label: 'Will import',   value: usable.toLocaleString(),      note: 'unique, with a contact' },
+        { label: 'Duplicates',    value: dupes.toLocaleString(),       note: 'skipped' },
+        { label: 'No contact',    value: noContact.toLocaleString(),   note: 'no phone or email' },
+        { label: 'Cost per lead', value: usable > 0 && cost > 0 ? D.money(cost / usable) : '—',
+          note: D.money(cost) + ' total' }
+      ];
+    }
+
+    document.getElementById('reviewTiles').innerHTML = tiles.map(function (t) {
       return '<div class="tile"><div class="tile__label">' + t.label + '</div>' +
         '<div class="tile__value">' + t.value + '</div>' +
         '<div class="tile__note">' + t.note + '</div></div>';
     }).join('');
 
-    /* The preview shows the row AS STORED — already masked. Otherwise an
+    /* The preview shows rows AS STORED — already masked. Otherwise an
      * admin builds a mental model where plain contact values are normal
-     * in the UI, which is exactly the habit this product exists to break. */
+     * in this UI, which is the habit the product exists to break. */
     var cols = ['name', 'company', 'phone', 'email', 'city'];
     document.getElementById('previewTable').innerHTML =
-      '<table class="table"><thead><tr>' +
+      '<table class="table import-preview-table"><thead><tr>' +
       cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') +
       '</tr></thead><tbody>' +
       rows.slice(0, 8).map(function (r) {
@@ -298,64 +391,72 @@
       '</tbody></table>';
 
     var problems = [];
-    var hasName = Object.keys(state.mapping).some(function (k) { return state.mapping[k] === 'name'; });
-    var hasContact = Object.keys(state.mapping).some(function (k) {
-      return state.mapping[k] === 'phone' || state.mapping[k] === 'email';
-    });
+    var mapped = Object.keys(state.mapping).map(function (k) { return state.mapping[k]; });
 
-    if (!hasName) problems.push('No column is mapped to Contact name.');
-    if (!hasContact) problems.push('No column is mapped to Phone or Email — these leads would be unusable.');
+    if (mapped.indexOf('name') === -1) problems.push('No column is mapped to Contact name.');
+    if (mapped.indexOf('phone') === -1 && mapped.indexOf('email') === -1) {
+      problems.push('No column is mapped to Phone or Email — these leads would be unusable, and the import will be refused.');
+    }
     if (!document.getElementById('sourceName').value.trim()) {
-      problems.push('No source name given. Return by source will not be reportable for this batch.');
+      problems.push('No source name given. Cost per source will not be reportable for this batch.');
     }
 
     var box = document.getElementById('reviewProblems');
     box.hidden = problems.length === 0;
-    box.innerHTML = problems.join('<br>');
+    box.innerHTML = problems.map(D.escape).join('<br>');
   }
 
 
   /* ══ Step 4 — run ══════════════════════════════════════════════ */
 
   document.getElementById('runImport').addEventListener('click', function () {
+    if (!state.file) { D.toast('Choose a CSV file first.', 'error'); return; }
+
     go(4);
 
-    var pct = 0;
-    var fill = document.getElementById('runFill');
+    var fill  = document.getElementById('runFill');
     var label = document.getElementById('runLabel');
     var pctEl = document.getElementById('runPct');
 
-    var phases = [
-      [20, 'Uploading file…'],
-      [45, 'Parsing rows…'],
-      [70, 'Removing duplicates…'],
-      [88, 'Seeding decoy records…'],
-      [100, 'Writing to the vault…']
-    ];
+    label.textContent = 'Uploading and parsing…';
 
+    var form = new FormData();
+    form.append('file', state.file);
+    form.append('mapping', JSON.stringify(state.mapping));
+    form.append('sourceName', document.getElementById('sourceName').value.trim());
+    form.append('sourceCost', document.getElementById('sourceCost').value || '0');
+
+    /* Indeterminate progress. The server does the work in one request
+     * and reports nothing until it finishes, so an accurate percentage
+     * is not available — this animates to 90% and waits rather than
+     * claiming a precision it does not have. */
+    var pct = 0;
     var timer = setInterval(function () {
-      pct += 3;
-      var phase = phases.filter(function (p) { return pct <= p[0]; })[0];
-      if (phase) label.textContent = phase[1];
+      pct = Math.min(90, pct + 3);
+      fill.style.width = pct + '%';
+      pctEl.textContent = pct + '%';
+    }, 200);
 
-      fill.style.width = Math.min(100, pct) + '%';
-      pctEl.textContent = Math.min(100, pct) + '%';
+    API.importCommit(form).then(function (res) {
+      clearInterval(timer);
+      fill.style.width = '100%';
+      pctEl.textContent = '100%';
 
-      if (pct >= 100) {
-        clearInterval(timer);
-        finish();
-      }
-    }, 60);
+      state.sourceId = res.sourceId;
+
+      document.getElementById('doneSub').textContent =
+        res.imported.toLocaleString() + ' leads imported from ' + state.file.name +
+        ' · ' + res.duplicates.toLocaleString() + ' duplicates skipped' +
+        (res.noContact ? ' · ' + res.noContact.toLocaleString() + ' had no contact details' : '');
+
+      setTimeout(function () { go(5); }, 500);
+
+    }).catch(function (err) {
+      clearInterval(timer);
+      D.fail(err);
+      go(3);
+    });
   });
-
-  function finish() {
-    var rows = mappedRows();
-    document.getElementById('doneSub').textContent =
-      rows.length.toLocaleString() + ' rows processed from ' +
-      (state.file ? state.file.name : 'the file') +
-      ' · decoy records seeded for attribution';
-    go(5);
-  }
 
 
   /* ══ Step 5 — secure the original ══════════════════════════════ */
@@ -372,14 +473,24 @@
   });
 
   confirmBtn.addEventListener('click', function () {
-    /* Recorded as a security event, not a preference. "Who said they
-     * destroyed the source file, and when" is the first question asked
-     * after a list turns up somewhere it should not. */
-    D.securityEvent('source_file_destroyed', state.file ? state.file.name : 'unknown');
-    D.toast('Recorded. Import closed out.', 'ok');
-    setTimeout(function () { location.href = 'leads.html'; }, 900);
+    var btn = this;
+    btn.disabled = true;
+
+    /* Recorded as an attributable, timestamped statement — not as proof.
+     * Nobody can verify from a web server that a file was deleted from
+     * someone's machine. What this gives you is a named person saying
+     * so, and a dashboard list of imports where nobody has. */
+    API.importDestroy(state.sourceId)
+      .then(function () {
+        D.toast('Recorded. Import closed out.', 'ok');
+        setTimeout(function () { location.href = 'leads.html'; }, 900);
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        D.fail(err);
+      });
   });
 
 
-  go(1);
+  D.ready(function () { go(1); });
 })();

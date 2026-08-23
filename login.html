@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Datafort · Sign in</title>
 
-  <link rel="icon" href="brand/datafort-icon.svg" type="image/svg+xml">
+  <link rel="icon" href="brand/favicon.ico" sizes="any">
+  <link rel="icon" href="brand/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
 
   <!-- No indexing. This is a tenant login, not a marketing page. -->
   <meta name="robots" content="noindex, nofollow">
@@ -14,12 +16,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=1">
-  <link rel="stylesheet" href="login.css?v=1">
+  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="login.css?v=5">
 
   <!-- Must stay in <head> and must not be deferred, or dark mode
        flashes white before the first paint. -->
-  <script src="theme.js?v=1"></script>
+  <!-- FIRST script on the page. Turns phones and tablets away before
+       any markup renders — see desktop-only.js. -->
+  <script src="desktop-only.js?v=4"></script>
+  <script src="theme.js?v=4"></script>
 </head>
 
 <body>
@@ -32,17 +37,8 @@
   <aside class="brandside">
 
     <div class="brandside__logo">
-      <!-- Inlined rather than <img> so it inherits currentColor and
-           needs no second request on the coldest page in the app.
-           Source of truth is brand/datafort-icon-mono.svg. -->
-      <svg viewBox="0 0 120 128" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd"
-              d="M12 18 h22 v14 h12 V18 h28 v14 h12 V18 h22 v66 l-48 38 -48 -38 Z
-                 M30 40 v36 l30 24 30 -24 V40 Z"/>
-        <path d="M38 46 L60 57 L82 46 L82 57 L60 68 L38 57 Z"/>
-        <path d="M38 60 L60 71 L82 60 L82 71 L60 82 L38 71 Z"/>
-        <path d="M38 74 L60 85 L82 74 L82 85 L60 96 L38 85 Z"/>
-      </svg>
+      <img src="brand/logo-mark-light.png?v=5" width="363" height="414"
+           alt="" aria-hidden="true">
       <span class="word">DATAFORT</span>
     </div>
 
@@ -172,6 +168,6 @@
   </main>
 </div>
 
-<script src="login.js?v=1"></script>
+<script src="login.js?v=4"></script>
 </body>
 </html>

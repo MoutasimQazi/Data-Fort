@@ -4,15 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Datafort · Device not authorised</title>
-  <link rel="icon" href="brand/datafort-icon.svg" type="image/svg+xml">
+  <link rel="icon" href="brand/favicon.ico" sizes="any">
+  <link rel="icon" href="brand/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
   <meta name="robots" content="noindex, nofollow">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=1">
-  <script src="theme.js?v=1"></script>
+  <link rel="stylesheet" href="style.css?v=4">
+  <!-- FIRST script on the page. Turns phones and tablets away before
+       any markup renders — see desktop-only.js. -->
+  <script src="desktop-only.js?v=4"></script>
+  <script src="theme.js?v=4"></script>
 
   <style>
     .wrap {
@@ -109,8 +114,28 @@
     </div>
 
     <div class="box__foot">
-      Access from personal computers, phones and shared machines is blocked by
-      design. Every attempt is recorded, including this one.
+      <p style="margin:0 0 14px">
+        Access from personal computers, phones and shared machines is blocked by
+        design. Every attempt is recorded, including this one.
+      </p>
+
+      <!-- A way out.
+           This page is static: it renders whatever ?reason= says and never
+           re-checks anything. Without a link back, anyone who lands here is
+           stuck forever — reloading shows the same block even after the
+           problem is fixed, because there is nothing here that would notice.
+           An administrator turning enforcement off could not get back into
+           their own app. -->
+      <a href="login.html"
+         style="display:inline-block;padding:9px 16px;border-radius:8px;
+                background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);
+                color:#fff;text-decoration:none;font-size:13px;font-weight:500">
+        Try signing in again
+      </a>
+      <span style="display:block;margin-top:10px;font-size:11.5px;
+                   color:var(--text-faint)">
+        If the certificate has since been installed or activated, this will work.
+      </span>
     </div>
   </div>
 </div>

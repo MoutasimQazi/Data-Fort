@@ -1,32 +1,34 @@
 /* lead.js — one lead, worked by the rep it is assigned to.
  *
  * Same rules as my-leads: masked by default, reveal costs quota, every
- * action logged, watermark on screen. The addition here is the email
- * relay, which is how "block email exfiltration" is actually delivered
- * — not by trying to stop the rep using Gmail, but by never giving the
- * browser the address in the first place (requirements 7.1).
+ * action logged, watermark on screen. The addition is the email relay —
+ * how "block email exfiltration" is actually delivered: the browser is
+ * never given the address, so there is nothing to paste elsewhere.
  */
 (function () {
   'use strict';
 
-  var M = window.MOCK;
   var D = window.Datafort;
+  var API = window.DatafortAPI;
 
-  window.Datafort.session = M.repSession;
-  var ME = window.Datafort.session;
+  var ref = new URLSearchParams(location.search).get('id') || '';
 
-  var me = M.users.filter(function (u) { return u.id === ME.id; })[0];
-  var quota = { limit: me.quota, used: me.usedToday };
+  var lead = null;
+  var quota = { limit: 0, used: 0 };
+  var activity = [];
 
-  var id = new URLSearchParams(location.search).get('id');
-  var lead = M.leads.filter(function (l) { return l.id === id; })[0];
+  /* Which fields are unmasked is not tracked here. Only one value is
+   * ever on screen and reveal.js owns it — see the note at the top of
+   * that file about why this is a display rule, not a control. */
 
-  /* A rep reaching a lead that is not theirs is not a 404 — it is an
-   * access violation, and it is logged as one. Server-side the endpoint
-   * must refuse on ownership before it refuses on existence, or the
-   * error message itself tells the rep which lead IDs are real. */
-  if (!lead || lead.ownerId !== ME.id) {
-    D.securityEvent('lead_access_denied', id || 'none');
+
+  /* ══ Not available ═════════════════════════════════════════════ */
+
+  /* A rep reaching a lead that is not theirs is an access violation,
+   * not a 404, and the server logs it as one. It answers identically
+   * whether the lead is unowned or does not exist — otherwise the error
+   * message becomes a way to enumerate the lead table. */
+  function notAvailable() {
     document.getElementById('content').innerHTML =
       '<div class="card" style="grid-column:1/-1"><div class="empty">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">' +
@@ -35,7 +37,6 @@
         '<p>This lead is not assigned to you. The attempt has been recorded.</p>' +
         '<a class="btn btn--ghost btn--sm" href="my-leads.html">Back to my leads</a>' +
       '</div></div>';
-    return;
   }
 
 
@@ -50,130 +51,82 @@
   }
 
 
-  /* ══ Reveal (mock — see my-leads.js for the production contract) ══ */
-
-  function fakeValue(field) {
-    if (field === 'phone') {
-      var h = 0;
-      for (var i = 0; i < lead.id.length; i++) h = (h * 31 + lead.id.charCodeAt(i)) | 0;
-      var digits = String(Math.abs(h) % 100000000).padStart(8, '0');
-      return '+91 ' + digits.slice(0, 5) + ' ' + digits.slice(5);
-    }
-    return lead.name.toLowerCase().replace(/[^a-z]/g, '.') + '@' +
-           lead.company.toLowerCase().replace(/[^a-z]/g, '') + '.com';
-  }
-
-  function bakeImage(text) {
-    var scale = window.devicePixelRatio || 1, pad = 6, size = 13;
-    var probe = document.createElement('canvas').getContext('2d');
-    probe.font = '600 ' + size + 'px Inter, Segoe UI, sans-serif';
-    var w = Math.ceil(probe.measureText(text).width) + pad * 2;
-    var h = size + pad * 2;
-
-    var c = document.createElement('canvas');
-    c.width = w * scale; c.height = h * scale;
-    var ctx = c.getContext('2d');
-    ctx.scale(scale, scale);
-
-    var dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
-      (!document.documentElement.getAttribute('data-theme') &&
-       matchMedia('(prefers-color-scheme: dark)').matches);
-
-    ctx.fillStyle = dark ? '#18243C' : '#F4F6F8';
-    ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = dark ? '#EAF0F8' : '#14213D';
-    ctx.font = '600 ' + size + 'px Inter, Segoe UI, sans-serif';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, pad, h / 2);
-
-    ctx.save();
-    ctx.globalAlpha = .34;
-    ctx.fillStyle = dark ? '#9CC0FC' : '#1E6BF1';
-    ctx.font = '600 8px Inter, Segoe UI, sans-serif';
-    ctx.rotate(-0.18);
-    var tag = ME.name + ' · ' + ME.id;
-    for (var y = -h; y < h * 2; y += 13) {
-      for (var x = -20; x < w + 40; x += ctx.measureText(tag).width + 16) ctx.fillText(tag, x, y);
-    }
-    ctx.restore();
-    return c.toDataURL('image/png');
-  }
-
-  var revealed = {};
-
-  function contactCell(field) {
-    var masked = field === 'phone' ? lead.phoneMasked : lead.emailMasked;
-
-    if (revealed[field]) {
-      return '<span class="revealed"><img src="' + bakeImage(fakeValue(field)) +
-             '" alt="Revealed ' + field + '"></span>';
-    }
-
-    var spent = quota.used >= quota.limit;
-    return '<span class="masked">' + D.escape(masked) +
-      '<button class="reveal" data-field="' + field + '"' + (spent ? ' disabled' : '') +
-      ' aria-label="Reveal ' + field + '" title="Uses one daily reveal">' +
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-      'stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>' +
-      '</svg></button></span>';
-  }
-
-
   /* ══ Render ════════════════════════════════════════════════════ */
 
   function badge(s) {
     var label = { new: 'New', working: 'Working', won: 'Won', lost: 'Lost' }[s] || s;
-    return '<span class="badge badge--' + s + '">' + label + '</span>';
+    return '<span class="badge badge--' + D.escape(s) + '">' + label + '</span>';
+  }
+
+  function contactCell(field) {
+    var masked = field === 'phone' ? lead.phoneMasked : lead.emailMasked;
+    if (!masked) return '<span style="color:var(--text-faint)">Not on record</span>';
+
+    var paid  = (lead.revealed || []).indexOf(field) !== -1;
+    var spent = quota.limit <= 0 || quota.used >= quota.limit;
+
+    return '<span class="masked">' + D.escape(masked) +
+      // Already paid for stays clickable even with the quota spent —
+      // the server does not charge twice.
+      '<button class="reveal" data-field="' + field + '"' +
+      (spent && !paid ? ' disabled' : '') +
+      ' aria-label="Reveal ' + field +
+        (paid ? ' — already revealed today, free to show again'
+              : ' — uses one of your daily reveals') + '"' +
+      ' title="' + (paid ? 'Already revealed today · free' : 'Uses one daily reveal') + '">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/>' +
+      '<circle cx="12" cy="12" r="3"/></svg></button></span>';
   }
 
   function render() {
-    document.getElementById('leadName').textContent = lead.name;
+    document.getElementById('leadName').textContent = lead.name || 'Unnamed lead';
     document.getElementById('leadSub').textContent =
-      lead.company + ' · ' + lead.designation + ' · ' + lead.city;
+      [lead.company, lead.designation, lead.city].filter(Boolean).join(' · ');
     document.getElementById('statusBadge').innerHTML = badge(lead.status);
     document.getElementById('statusSelect').value = lead.status;
 
+    // Third element tags the two contact rows so the reveal handler can
+    // find the exact <dd> to swap without re-rendering the whole list.
     var rows = [
-      ['Phone',       contactCell('phone')],
-      ['Email',       contactCell('email')],
-      ['Company',     D.escape(lead.company)],
-      ['Designation', D.escape(lead.designation)],
-      ['Industry',    D.escape(lead.industry)],
-      ['Company size',D.escape(lead.companySize)],
-      ['City',        D.escape(lead.city)],
-      ['Source',      D.escape(lead.source)],
-      ['Acquired',    D.ago(lead.acquiredDate)],
+      ['Phone',          contactCell('phone'), 'phone'],
+      ['Email',          contactCell('email'), 'email'],
+      ['Company',        D.escape(lead.company || '—')],
+      ['Designation',    D.escape(lead.designation || '—')],
+      ['Industry',       D.escape(lead.industry || '—')],
+      ['Company size',   D.escape(lead.companySize || '—')],
+      ['City',           D.escape(lead.city || '—')],
+      ['Source',         D.escape(lead.source || '—')],
+      ['Acquired',       lead.acquiredDate ? D.ago(lead.acquiredDate) : '—'],
       ['Last contacted', lead.lastContacted ? D.ago(lead.lastContacted) :
         '<span style="color:var(--text-faint)">Never</span>']
     ];
 
     document.getElementById('details').innerHTML = rows.map(function (r) {
-      return '<dt style="color:var(--text-muted)">' + r[0] + '</dt><dd style="margin:0">' + r[1] + '</dd>';
+      return '<dt style="color:var(--text-muted)">' + r[0] + '</dt>' +
+             '<dd style="margin:0"' + (r[2] ? ' data-field="' + r[2] + '"' : '') +
+             '>' + r[1] + '</dd>';
     }).join('');
 
     document.getElementById('emailTo').innerHTML =
-      D.escape(lead.emailMasked) +
-      ' <span style="font-size:11.5px;color:var(--text-faint)">(hidden)</span>';
+      D.escape(lead.emailMasked || 'No address on record') +
+      (lead.emailMasked ? ' <span style="font-size:11.5px;color:var(--text-faint)">(hidden)</span>' : '');
 
     paintQuota();
   }
 
-  var activity = [
-    { text: 'Lead assigned to you', at: lead.acquiredDate, level: 'grey' }
-  ];
-  if (lead.lastContacted) {
-    activity.unshift({ text: 'Call logged — no answer', at: lead.lastContacted, level: 'grey' });
-  }
-
   function renderActivity() {
-    document.getElementById('activity').innerHTML = activity.map(function (a) {
-      return '<div class="feed__item">' +
-        '<div class="feed__dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-        'stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>' +
-        '<div class="feed__text">' + D.escape(a.text) +
-        '<div class="feed__meta">' + D.ago(a.at) + '</div></div></div>';
-    }).join('');
+    document.getElementById('activity').innerHTML = activity.length
+      ? activity.map(function (a) {
+          return '<div class="feed__item">' +
+            '<div class="feed__dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+            'stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/>' +
+            '<path d="M12 7v5l3 2"/></svg></div>' +
+            '<div class="feed__text">' + D.escape(a.text) +
+            '<div class="feed__meta">' + D.ago(a.at) + '</div></div></div>';
+        }).join('')
+      : '<div class="empty" style="padding:28px"><p>No activity recorded yet.</p></div>';
   }
 
 
@@ -183,63 +136,165 @@
     var btn = e.target.closest('.reveal');
     if (!btn || btn.disabled) return;
 
-    if (quota.used >= quota.limit) {
-      D.toast('Daily reveal quota spent.', 'error');
-      return;
-    }
+    var field = btn.dataset.field;
+    btn.disabled = true;
 
-    quota.used++;
-    revealed[btn.dataset.field] = true;
-    D.securityEvent('contact_revealed', lead.id + '/' + btn.dataset.field);
-    render();
+    API.reveal(lead.id, field).then(function (res) {
+      if (res.quota) { quota.limit = res.quota.limit; quota.used = res.quota.used; }
+      else quota.used++;
+
+      // Mark it paid so re-showing stays free and the button stays live.
+      lead.revealed = lead.revealed || [];
+      if (lead.revealed.indexOf(field) === -1) lead.revealed.push(field);
+
+      /* One value on screen at a time. render() rebuilds the whole
+       * detail list, so remask() is simply "render again" — the field is
+       * masked by default and nothing else has to be undone. */
+      var dd = document.querySelector('#details [data-field="' + field + '"]');
+      if (dd) {
+        if (res.image) {
+          dd.innerHTML = '<span class="revealed">' +
+            '<img src="' + res.image + '" alt="Revealed ' + field + '">' +
+            '<span class="revealed__ttl" data-countdown></span></span>';
+        } else if (res.value) {
+          dd.innerHTML = '<span class="revealed" data-plain="true">' +
+            D.escape(res.value) +
+            '<span class="revealed__ttl" data-countdown></span></span>';
+        }
+
+        DatafortReveal.claim(lead.id + ':' + field, res.image || null,
+          function () { render(); },
+          function (left) {
+            var el = dd.querySelector('[data-countdown]');
+            if (el) el.textContent = left + 's';
+          });
+      }
+      paintQuota();
+
+    }).catch(function (err) {
+      btn.disabled = false;
+      if (err.status === 429) {
+        if (err.payload && err.payload.quota) {
+          quota.limit = err.payload.quota.limit;
+          quota.used  = err.payload.quota.used;
+        }
+        paintQuota();
+        D.toast('Daily reveal quota spent.', 'error');
+        return;
+      }
+      D.fail(err);
+    });
   });
 
   document.getElementById('saveStatus').addEventListener('click', function () {
-    lead.status = document.getElementById('statusSelect').value;
-    var note = document.getElementById('noteBox').value.trim();
+    var status = document.getElementById('statusSelect').value;
+    var note   = document.getElementById('noteBox').value.trim();
+    var btn    = this;
 
-    activity.unshift({ text: 'Status set to ' + lead.status + (note ? ' — ' + note : ''),
-                       at: new Date().toISOString(), level: 'grey' });
-    document.getElementById('noteBox').value = '';
+    btn.disabled = true;
 
-    render();
-    renderActivity();
-    D.toast('Status updated. (Not saved — no API yet.)', 'ok');
+    API.updateLead({ lead: lead.id, status: status, note: note })
+      .then(function () {
+        lead.status = status;
+        activity.unshift({
+          text: 'Status set to ' + status + (note ? ' — ' + note : ''),
+          at: new Date().toISOString()
+        });
+        document.getElementById('noteBox').value = '';
+        render();
+        renderActivity();
+        D.toast('Saved.', 'ok');
+      })
+      .catch(D.fail)
+      .then(function () { btn.disabled = false; });
   });
 
   document.getElementById('logCallBtn').addEventListener('click', function () {
-    lead.lastContacted = new Date().toISOString();
-    activity.unshift({ text: 'Call logged', at: lead.lastContacted, level: 'grey' });
-    render();
-    renderActivity();
-    D.toast('Call logged.', 'ok');
+    var btn = this;
+    btn.disabled = true;
+
+    API.updateLead({ lead: lead.id, logCall: true })
+      .then(function () {
+        lead.lastContacted = new Date().toISOString();
+        activity.unshift({ text: 'Call logged', at: lead.lastContacted });
+        render();
+        renderActivity();
+        D.toast('Call logged.', 'ok');
+      })
+      .catch(D.fail)
+      .then(function () { btn.disabled = false; });
   });
 
   document.getElementById('sendMail').addEventListener('click', function () {
     var subject = document.getElementById('mailSubject').value.trim();
-    var body = document.getElementById('mailBody').value.trim();
+    var body    = document.getElementById('mailBody').value.trim();
+    var btn     = this;
 
     if (!subject || !body) {
       D.toast('Subject and message are both required.', 'error');
       return;
     }
 
-    /* Production: POST to api/lead-email.php, which looks the address up
-     * server-side, sends, and writes the audit row. The rep's browser
-     * never sees the recipient. */
-    activity.unshift({ text: 'Email sent via relay — "' + subject + '"',
-                       at: new Date().toISOString(), level: 'grey' });
-    document.getElementById('mailSubject').value = '';
-    document.getElementById('mailBody').value = '';
-    renderActivity();
-    D.toast('Queued for delivery through Datafort. (Not sent — no API yet.)', 'ok');
+    btn.disabled = true;
+
+    /* The address is looked up server-side and never sent here. Replies
+     * land in the relay inbox, not the rep's own mailbox — a real
+     * workflow cost, and the price of the address never leaving. */
+    API.sendEmail({ lead: lead.id, subject: subject, body: body })
+      .then(function () {
+        activity.unshift({
+          text: 'Email sent via relay — "' + subject + '"',
+          at: new Date().toISOString()
+        });
+        document.getElementById('mailSubject').value = '';
+        document.getElementById('mailBody').value = '';
+        lead.lastContacted = new Date().toISOString();
+        render();
+        renderActivity();
+        D.toast('Sent through Datafort.', 'ok');
+      })
+      .catch(D.fail)
+      .then(function () { btn.disabled = false; });
   });
 
-  // Single column on narrow screens; the two-column grid is desktop only.
+
+  /* ══ Load ══════════════════════════════════════════════════════ */
+
+  // Blob release, blur handling and the re-mask timer live in reveal.js.
+
   if (window.matchMedia('(max-width: 900px)').matches) {
     document.getElementById('content').style.gridTemplateColumns = '1fr';
   }
 
-  render();
-  renderActivity();
+  D.ready(function (session) {
+    quota.limit = session.quota ? session.quota.limit : 0;
+    quota.used  = session.quota ? session.quota.used  : 0;
+
+    if (!ref) { notAvailable(); return; }
+
+    /* There is no single-lead endpoint; the list endpoint already scopes
+     * to the signed-in rep, so searching it by ref gives the same
+     * guarantee without a second server-side ownership check to keep in
+     * sync with the first. */
+    API.leads({ q: ref, limit: 50 }).then(function (res) {
+      lead = (res.leads || []).filter(function (l) { return l.id === ref; })[0];
+
+      if (!lead) {
+        D.securityEvent('lead_access_denied', ref);
+        notAvailable();
+        return;
+      }
+
+      activity = [];
+      if (lead.acquiredDate) {
+        activity.push({ text: 'Lead added to Datafort', at: lead.acquiredDate });
+      }
+      if (lead.lastContacted) {
+        activity.unshift({ text: 'Last contacted', at: lead.lastContacted });
+      }
+
+      render();
+      renderActivity();
+    }).catch(D.fail);
+  });
 })();

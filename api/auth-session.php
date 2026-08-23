@@ -16,7 +16,11 @@ $_SERVER['HTTP_X_DATAFORT_QUIET'] = '1';
 $ctx = requireAuth($pdo, $CONFIG);
 $user = $ctx['user'];
 
-$used = $user['role'] === 'admin' ? 0 : revealsToday($pdo, $user['tenant_id'], $user['id']);
+/* Counted for everyone, admins included — lead-reveal.php now writes a
+ * ledger row for every reveal regardless of role, so reporting 0 here
+ * would make this endpoint disagree with the table an investigator
+ * reads. An uncapped admin shows a real count against a limit of 0. */
+$used = revealsToday($pdo, $user['tenant_id'], $user['id']);
 
 respond([
     'id'     => 'u-' . $user['id'],
@@ -27,7 +31,12 @@ respond([
     'quota'  => [
         'limit' => $user['quota'],
         'used'  => $used,
-        'left'  => max(0, $user['quota'] - $used),
+        // -1 means uncapped: an admin on daily_quota = 0. For a rep the
+        // same 0 means blocked, which is why the role has to be checked
+        // rather than the number alone.
+        'left'  => ($user['role'] === 'admin' && (int) $user['quota'] === 0)
+                       ? -1
+                       : max(0, $user['quota'] - $used),
     ],
     'device' => $ctx['device'] ? [
         'code'    => $ctx['device']['device_code'],
