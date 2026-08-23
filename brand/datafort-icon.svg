@@ -1,11 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 128" width="120" height="128" role="img" aria-label="Datafort">
-  <title>Datafort</title>
-  <!-- Fort: hexagonal keep with battlements, hollow interior -->
-  <path fill="#14213D" fill-rule="evenodd"
-        d="M12 18 h22 v14 h12 V18 h28 v14 h12 V18 h22 v66 l-48 38 -48 -38 Z
-           M30 40 v36 l30 24 30 -24 V40 Z"/>
-  <!-- Data layers stacked inside the keep -->
-  <path fill="#1E6BF1" d="M38 46 L60 57 L82 46 L82 57 L60 68 L38 57 Z"/>
-  <path fill="#1E6BF1" d="M38 60 L60 71 L82 60 L82 71 L60 82 L38 71 Z"/>
-  <path fill="#14213D" d="M38 74 L60 85 L82 74 L82 85 L60 96 L38 85 Z"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="128" aria-label="Datafort" role="img" viewBox="0 0 120 128"><title>Datafort</title><path fill="#14213D" fill-rule="evenodd" d="M12 18 h22 v14 h12 V18 h28 v14 h12 V18 h22 v66 l-48 38 -48 -38 Z M30 40 v36 l30 24 30 -24 V40 Z"/><path fill="#1E6BF1" d="M38 46 L60 57 L82 46 L82 57 L60 68 L38 57 Z"/><path fill="#1E6BF1" d="M38 60 L60 71 L82 60 L82 71 L60 82 L38 71 Z"/><path fill="#14213D" d="M38 74 L60 85 L82 74 L82 85 L60 96 L38 85 Z"/></svg>
