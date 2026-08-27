@@ -657,6 +657,9 @@
 .empty svg { width: 34px; height: 34px; color: var(--text-faint); }
 .empty h3 { font-size: 15px; color: var(--text); }
 .empty p { margin: 0; font-size: 13.5px; max-width: 42ch; }
+/* display:grid above beats the UA sheet's [hidden] rule, so the empty
+ * state stayed visible under a populated table. */
+.empty[hidden] { display: none; }
 
 
 /* ══ Modal ═══════════════════════════════════════════════════════ */
@@ -714,9 +717,10 @@
   border-top: 1px solid var(--border-soft);
 }
 
-/* Certificate enrolment guide inside Register laptop. It is open on first
- * view because "issue a certificate first" is not an actionable instruction;
- * experienced administrators can collapse it while entering later devices. */
+/* Employee enrolment guide inside Register laptop: what the person does on
+ * their own laptop once the certificate has been issued. Open on first view
+ * because the admin is usually reading it aloud or pasting it to the employee;
+ * it collapses once they know the six steps by heart. */
 .cert-guide {
   min-height: max-content;
   border: 1px solid var(--border);
@@ -861,10 +865,39 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
+  align-items: start;
 }
 
-.figure { display: grid; gap: 10px; }
-.figure figcaption { font-size: 12.5px; color: var(--text-muted); }
+/* Below the three-across breakpoint the figures get the full column
+ * rather than being squeezed two-up at 240px, where the rep names
+ * truncate to initials and the axis loses every tick but the ends. */
+@media (max-width: 1080px) {
+  .chartgrid { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+}
+@media (max-width: 640px) {
+  .chartgrid { grid-template-columns: 1fr; gap: 12px; }
+}
+
+.figure { display: grid; gap: 12px; margin: 0; }
+.figure figcaption { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+
+/* charts.js draws to the host's measured pixel width, so the SVG is
+ * already the right size — it must not be stretched again by a
+ * percentage width, or every label lands a fraction off its mark. */
+.chartsvg { display: block; overflow: visible; }
+
+/* The small ⓘ beside a figure title. gap on .card__head is sized for a
+ * button, which pushes it too far from the heading it belongs to. */
+.hint {
+  display: inline-flex;
+  margin-left: -5px;
+  color: var(--text-faint);
+  cursor: help;
+  border-radius: 50%;
+}
+.hint svg { width: 14px; height: 14px; }
+.hint:hover { color: var(--text-muted); }
+.hint:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .legend {
   display: flex;
@@ -876,19 +909,59 @@
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i {
   width: 9px; height: 9px;
-  border-radius: 2px;
+  border-radius: 50%;
   background: currentColor;
   flex: none;
 }
 
-/* Tooltip for the inline-SVG charts. Positioned by charts.js. */
+/* ── Loading and empty ────────────────────────────────────────────
+ * The skeleton mirrors a bar chart's shape so the card keeps its
+ * height and nothing jumps when the payload lands. */
+.chartload { display: grid; gap: 15px; padding: 6px 0 22px; }
+.chartload__row { display: flex; align-items: center; gap: 12px; }
+.chartload__label { width: 28%; flex: none; }
+.chartload__label, .chartload__bar {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg,
+    var(--border-soft) 25%, var(--border) 37%, var(--border-soft) 63%);
+  background-size: 400% 100%;
+  animation: chartshimmer 1.4s ease-in-out infinite;
+}
+.chartload__bar { height: 21px; }
+
+@keyframes chartshimmer {
+  from { background-position: 100% 0; }
+  to   { background-position: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chartload__label, .chartload__bar { animation: none; }
+}
+
+.chartempty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 40px 16px 46px;
+  text-align: center;
+}
+.chartempty svg { width: 26px; height: 26px; color: var(--text-faint); opacity: .8; }
+.chartempty p { margin: 0; font-size: 13.5px; font-weight: 500; color: var(--text); }
+.chartempty span { font-size: 12.5px; color: var(--text-muted); max-width: 34ch; }
+
+/* ── Tooltip ──────────────────────────────────────────────────────
+ * Positioned by charts.js, built by its tipHTML(). Every figure emits
+ * the same three parts, so one rule set covers all of them. */
 .charttip {
   position: fixed;
   z-index: 70;
   pointer-events: none;
-  padding: 8px 10px;
+  min-width: 148px;
+  padding: 9px 11px;
   background: var(--ink);
   color: #fff;
+  border: 1px solid rgba(255, 255, 255, .1);
   border-radius: var(--r-sm);
   font-size: 12.5px;
   line-height: 1.45;
@@ -896,17 +969,61 @@
   white-space: nowrap;
 }
 .charttip[hidden] { display: none; }
-.charttip b { font-variant-numeric: tabular-nums; }
+
+.charttip__head {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: .2px;
+  margin-bottom: 6px;
+}
+.charttip__rows { display: grid; gap: 3px; }
+.charttip__row {
+  display: grid;
+  grid-template-columns: 9px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.charttip__row i {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  display: block;
+}
+.charttip__row span { color: rgba(255, 255, 255, .72); }
+.charttip__row b,
+.charttip__foot b { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.charttip__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, .16);
+}
+.charttip__foot span { color: rgba(255, 255, 255, .72); }
 
 /* The table under every chart. Identity is never carried by colour
  * alone, so each figure has a readable fallback. */
+.figtable { border-top: 1px solid var(--border-soft); padding-top: 4px; }
 .figtable summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
   font-size: 12.5px;
-  color: var(--text-muted);
+  font-weight: 500;
+  color: var(--brand);
   cursor: pointer;
-  padding: 4px 0;
+  padding: 5px 0;
+  border-radius: var(--r-sm);
+  list-style: none;
 }
+.figtable summary::-webkit-details-marker { display: none; }
+.figtable summary svg { width: 14px; height: 14px; flex: none; }
+.figtable summary:hover { color: var(--brand-600); }
+.figtable summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
 .figtable[open] summary { margin-bottom: 8px; }
+.figtable .table { font-size: 12.5px; }
 
 
 /* ══ Anomaly feed ════════════════════════════════════════════════ */

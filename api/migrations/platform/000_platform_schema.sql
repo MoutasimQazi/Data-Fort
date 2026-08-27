@@ -1,0 +1,259 @@
+-- Datafort — platform (control-plane) schema. MySQL 8 / MariaDB 10.4+.
+--
+-- THIS IS A SEPARATE DATABASE FROM EVERY TENANT'S DATABASE.
+--
+-- A tenant's data (leads, users, devices, audit log — everything in
+-- api/migrations/001_schema.sql and friends) lives in its own database,
+-- one per enterprise customer. This file provisions the ONE database
+-- that sits above all of them: the registry of which customers exist,
+-- the platform owner's own login, and a platform-level audit trail.
+--
+-- NEVER apply this file to a tenant database, and never apply a tenant
+-- migration to this one. scripts/provision-tenant.php keeps the two
+-- lineages separate on purpose — see its whitelist of tenant migration
+-- files, which does not include this one.
+--
+-- WHY THIS DATABASE MUST STAY SMALL IN WHAT IT CAN SEE
+--
+-- This database is the single highest-value target in the whole
+-- system: compromise it and you have the registry of every customer.
+-- It is deliberately kept from being the single highest-value target
+-- for CUSTOMER DATA too — it stores each tenant's database connection
+-- info to provision and administer accounts, never a live connection
+-- into a tenant's own database, and no code path here ever queries a
+-- tenant's leads/users/devices tables. That boundary is what lets the
+-- product be sold on "the platform operator cannot see your data" —
+-- see api/platform/README.md for how that boundary is enforced in code.
+--
+-- db_pass_enc below is ciphertext (AES-256-GCM, api/platform/crypto.php),
+-- not a plain password column. The key that decrypts it lives only in
+-- the platform vhost's config.php, never in this database — so a dump
+-- of this table alone does not hand over every tenant's credentials.
+
+SET NAMES utf8mb4;
+
+
+-- ══ Tenant registry ═══════════════════════════════════════════════
+--
+-- One row per enterprise customer. This table is the ONLY place that
+-- knows how to reach a tenant's database; api/tenant-resolver.php reads
+-- it once per request (when multi_tenant.enabled is true) to decide
+-- which database api/db.php should open.
+
+CREATE TABLE IF NOT EXISTS platform_tenants (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+  name            VARCHAR(160) NOT NULL,
+  subdomain_slug  VARCHAR(80) NOT NULL UNIQUE,     -- {slug}.{base_domain}
+
+  status          ENUM('pending','provisioning','active','suspended','deprovisioned')
+                    NOT NULL DEFAULT 'pending',
+  plan            VARCHAR(60) NULL,
+
+  contact_name    VARCHAR(160) NULL,
+  contact_email   VARCHAR(190) NULL,
+
+  -- Where and how to reach this tenant's own database. Never a live
+  -- connection — just enough for provision-tenant.php and a future
+  -- admin action to open one deliberately.
+  db_host         VARCHAR(190) NOT NULL DEFAULT 'localhost',
+  db_port         VARCHAR(10)  NOT NULL DEFAULT '3306',
+  db_name         VARCHAR(80)  NOT NULL,
+  db_user         VARCHAR(80)  NOT NULL,
+  db_pass_enc     VARBINARY(512) NOT NULL,         -- ciphertext, see header
+
+  ca_name         VARCHAR(190) NULL,               -- e.g. "Acme Corp Device CA"
+
+  -- Provisioning checklist. Each column is written once, in order, by
+  -- scripts/provision-tenant.php, and read back by the platform panel
+  -- to render a checklist instead of a single opaque "pending" state.
+  db_provisioned_at  DATETIME NULL,
+  admin_seeded_at    DATETIME NULL,
+  ca_scaffolded_at   DATETIME NULL,
+  vhost_live_at      DATETIME NULL,   -- set manually once the Apache vhost is confirmed live
+
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  KEY ix_tenants_status (status)
+) ENGINE=InnoDB;
+
+
+-- ══ Platform admins ═══════════════════════════════════════════════
+--
+-- Deliberately NOT the tenant `users` table with an extra role value —
+-- a platform owner account must not be reachable by anything that
+-- authenticates against a tenant's database, and a tenant admin must
+-- never be promotable into this table by mistake. Two separate tables,
+-- two separate login surfaces, on purpose.
+
+CREATE TABLE IF NOT EXISTS platform_admins (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name          VARCHAR(160) NOT NULL,
+  email         VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+
+  status        ENUM('active','suspended') NOT NULL DEFAULT 'active',
+  totp_secret   VARCHAR(64) NULL,
+
+  last_seen_at  DATETIME NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+
+-- ══ Platform sessions ═════════════════════════════════════════════
+--
+-- Same device-binding shape as the tenant `sessions` table
+-- (api/migrations/001_schema.sql) and the same reasoning: a cookie
+-- lifted off the platform owner's laptop is worthless without the
+-- certificate that created it. See api/platform/device.php.
+
+CREATE TABLE IF NOT EXISTS platform_admin_sessions (
+  id            CHAR(64) PRIMARY KEY,
+  admin_id      INT UNSIGNED NOT NULL,
+
+  device_id     INT UNSIGNED NULL,
+  device_serial VARCHAR(80) NULL,
+
+  ip            VARCHAR(45) NULL,
+  user_agent    VARCHAR(255) NULL,
+  device_fp     VARCHAR(32) NULL,
+
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at    DATETIME NOT NULL,
+  revoked_at    DATETIME NULL,
+
+  KEY ix_padmin_sessions_admin (admin_id),
+  KEY ix_padmin_sessions_expiry (expires_at),
+  CONSTRAINT fk_padmin_sessions_admin FOREIGN KEY (admin_id) REFERENCES platform_admins(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+CREATE TABLE IF NOT EXISTS platform_login_attempts (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email      VARCHAR(190) NOT NULL,
+  ip         VARCHAR(45) NOT NULL,
+  ok         TINYINT(1) NOT NULL DEFAULT 0,
+  at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY ix_pattempts_email (email, at),
+  KEY ix_pattempts_ip (ip, at)
+) ENGINE=InnoDB;
+
+
+CREATE TABLE IF NOT EXISTS platform_password_resets (
+  token_hash CHAR(64) PRIMARY KEY,
+  admin_id   INT UNSIGNED NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used_at    DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_preset_admin FOREIGN KEY (admin_id) REFERENCES platform_admins(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+-- ══ Platform devices — mTLS for the platform owner's own laptops ══
+--
+-- Same shape and purpose as company_devices/device_auth_log in
+-- api/migrations/001_schema.sql, scoped to the platform's own CA
+-- instead of any tenant's. Launches in 'log' mode, same staged
+-- off -> log -> enforce rollout device.php already documents.
+
+CREATE TABLE IF NOT EXISTS platform_devices (
+  id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+  device_code         VARCHAR(64) NOT NULL UNIQUE,
+  admin_id            INT UNSIGNED NULL,
+
+  certificate_serial  VARCHAR(80) NOT NULL UNIQUE,
+  certificate_subject VARCHAR(255) NOT NULL,
+  certificate_issuer  VARCHAR(255) NULL,
+  certificate_fingerprint VARCHAR(95) NULL,
+
+  status              ENUM('pending','active','disabled','revoked') NOT NULL DEFAULT 'pending',
+
+  issued_at           DATETIME NULL,
+  expires_at          DATETIME NULL,
+  revoked_at          DATETIME NULL,
+  revoked_reason      VARCHAR(255) NULL,
+  last_seen_at        DATETIME NULL,
+  last_seen_ip        VARCHAR(45) NULL,
+
+  note                VARCHAR(255) NULL,
+  created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_pdevices_admin FOREIGN KEY (admin_id) REFERENCES platform_admins(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+
+CREATE TABLE IF NOT EXISTS platform_device_auth_log (
+  id                 BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  device_id          INT UNSIGNED NULL,
+  device_code        VARCHAR(64) NULL,
+  certificate_serial VARCHAR(80) NULL,
+  certificate_subject VARCHAR(255) NULL,
+
+  verify_result      VARCHAR(64) NOT NULL,
+  outcome            ENUM('allowed','denied') NOT NULL,
+  reason             VARCHAR(120) NOT NULL,
+
+  ip                 VARCHAR(45) NULL,
+  user_agent         VARCHAR(255) NULL,
+  path               VARCHAR(190) NULL,
+  at                 DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  KEY ix_pdal_at (at),
+  KEY ix_pdal_serial (certificate_serial)
+) ENGINE=InnoDB;
+
+
+-- ══ Platform audit log ════════════════════════════════════════════
+--
+-- Append-only, same discipline as api/migrations/001_schema.sql's
+-- audit_log: no UPDATE and no DELETE is issued against this table
+-- anywhere in the codebase. Grant the platform app's MySQL user only
+-- INSERT and SELECT on it:
+--   GRANT SELECT, INSERT ON datafort_platform.platform_audit_log TO 'datafort_platform_app'@'%';
+--
+-- tenant_id is nullable so an entry can be global (a new admin added)
+-- or scoped to one customer (that customer suspended) — the platform
+-- panel's per-tenant audit view filters on it.
+
+CREATE TABLE IF NOT EXISTS platform_audit_log (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id   INT UNSIGNED NULL,
+
+  actor_id    INT UNSIGNED NULL,
+  actor_name  VARCHAR(160) NULL,
+
+  action      VARCHAR(40) NOT NULL,       -- tenant_create, tenant_suspend, tenant_reactivate, login, blocked...
+  subject     VARCHAR(120) NULL,          -- tenant slug, admin email
+  detail      VARCHAR(500) NULL,
+
+  device_id   INT UNSIGNED NULL,
+  device_code VARCHAR(64) NULL,
+  ip          VARCHAR(45) NULL,
+  user_agent  VARCHAR(255) NULL,
+
+  at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  KEY ix_paudit_tenant_at (tenant_id, at),
+  KEY ix_paudit_actor (actor_id, at),
+  KEY ix_paudit_action (action, at),
+  CONSTRAINT fk_paudit_tenant FOREIGN KEY (tenant_id) REFERENCES platform_tenants(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+
+-- ══ Seed ══════════════════════════════════════════════════════════
+--
+-- Deliberately NO platform_admins row here. The mistake already made
+-- once in this project (api/migrations/003_repair_seed_passwords.sql:
+-- a real password in a file this repo's own comments admit is public)
+-- does not get repeated for the single account that can see every
+-- customer. Create the first platform admin with:
+--
+--   php scripts/create-platform-admin.php --email=you@yourcompany.com
+--
+-- which prompts for a password interactively and never writes it to
+-- disk, a log, or version control.

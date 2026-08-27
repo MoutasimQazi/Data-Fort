@@ -111,79 +111,143 @@
 
   /* ══ Charts ════════════════════════════════════════════════════ */
 
+  /* Hosts are looked up once. charts() runs again on every theme flip,
+   * and getElementById in a loop is the kind of thing that is free
+   * until the day someone adds a fourth figure. */
+  var HOSTS = {
+    status: 'chartStatus',
+    trend:  'chartTrend',
+    reps:   'chartReps'
+  };
+
+  function host(name) { return document.getElementById(HOSTS[name]); }
+
+  /* Skeletons go up before the request leaves, so the cards have their
+   * shape from the first paint instead of collapsing and then jumping
+   * when the payload lands. */
+  function chartsLoading() {
+    C.loading(host('status'), 4);
+    C.loading(host('trend'), 3);
+    C.loading(host('reps'), 5);
+  }
+
+  function pct(part, whole) {
+    return whole > 0 ? (Math.round((part / whole) * 1000) / 10) + '%' : '—';
+  }
+
   function charts() {
     if (!data) return;
 
-    /* Leads by status — the reserved status palette, keyed on the
-     * status itself. These four colours never appear as a categorical
-     * series anywhere else. */
+    /* ── Leads by status ──
+     * The reserved status palette, keyed on the status itself. These
+     * four colours never appear as a categorical series anywhere else.
+     * Order is the lifecycle — new, working, won, lost — not the count,
+     * because a funnel that reorders itself daily cannot be read. */
     var s = data.byStatus;
+    var totalLeads = (s.new || 0) + (s.working || 0) + (s.won || 0) + (s.lost || 0);
+
     var statusRows = [
       { key: 'new',     label: 'New',     value: s.new },
       { key: 'working', label: 'Working', value: s.working },
       { key: 'won',     label: 'Won',     value: s.won },
       { key: 'lost',    label: 'Lost',    value: s.lost }
-    ];
-    C.hbars(document.getElementById('chartStatus'), statusRows, { colorBy: 'status' });
-    C.table(document.getElementById('tableStatus'),
-      [{ key: 'label', label: 'Status' }, { key: 'value', label: 'Leads', num: true }],
-      statusRows);
+    ].map(function (r) {
+      return {
+        key: r.key, label: r.label, value: r.value,
+        note: { label: 'Share of pipeline', value: pct(r.value, totalLeads) }
+      };
+    });
 
-    // Two series, one shared scale. Never a second y-axis.
+    C.hbars(host('status'), statusRows, {
+      colorBy: 'status',
+      axisLabel: 'Leads',
+      unit: 'Leads',
+      aria: 'Leads by status: ' + statusRows.map(function (r) {
+        return r.label + ' ' + r.value;
+      }).join(', '),
+      emptyText: 'No leads yet',
+      emptyHint: 'Import a list to see the pipeline break down by status.'
+    });
+
+    C.table(document.getElementById('tableStatus'),
+      [{ key: 'label', label: 'Status' },
+       { key: 'value', label: 'Leads', num: true },
+       { key: 'share', label: 'Share' }],
+      statusRows.map(function (r) {
+        return { label: r.label, value: r.value, share: r.note.value };
+      }));
+
+    /* ── Reveals vs contacts ──
+     * Two series, one shared scale. Never a second y-axis. The tooltip
+     * carries the contact rate because it is the number the gap between
+     * the lines is really asking about, and it is the one quantity that
+     * is not already drawn. */
     var series = [{ key: 'reveals', label: 'Reveals' }, { key: 'contacted', label: 'Contacted' }];
+
     C.legend(document.getElementById('legendTrend'), series);
-    C.trend(document.getElementById('chartTrend'), data.trend, series);
+    C.trend(host('trend'), data.trend, series, {
+      aria: 'Reveals and contacts per day over the last 14 days',
+      footer: function (r) {
+        return { label: 'Contact rate', value: pct(r.contacted, r.reveals) };
+      },
+      emptyText: 'No activity recorded yet',
+      emptyHint: 'Reveals and contacts appear here as reps work the list.'
+    });
+
     C.table(document.getElementById('tableTrend'),
       [{ key: 'date', label: 'Date' },
        { key: 'reveals', label: 'Reveals', num: true },
-       { key: 'contacted', label: 'Contacted', num: true }],
-      data.trend);
+       { key: 'contacted', label: 'Contacted', num: true },
+       { key: 'rate', label: 'Contact rate' }],
+      (data.trend || []).map(function (r) {
+        return { date: r.date, reveals: r.reveals, contacted: r.contacted,
+                 rate: pct(r.contacted, r.reveals) };
+      }));
 
-    // Per-rep reveals. One series, so one colour and no legend.
-    var repRows = data.reps.map(function (r) {
+    /* ── Reveals today by rep ──
+     * One series, so one colour and no legend. Ranked: the question is
+     * who is working the list hardest today, and a fixed alphabetical
+     * order makes that a reading exercise. hbars() sorts and returns
+     * the rows so the table underneath matches the chart exactly. */
+    var repRows = (data.reps || []).map(function (r) {
+      var spent = r.quota > 0 && r.usedToday >= r.quota;
       return {
         label: r.name,
         value: r.usedToday,
-        note: 'quota ' + r.quota + (r.quota > 0 && r.usedToday >= r.quota ? ' · spent' : '')
+        quota: r.quota > 0 ? r.quota : 'uncapped',
+        note: {
+          label: 'Daily quota',
+          value: r.quota > 0
+            ? r.usedToday + ' of ' + r.quota + (spent ? ' · spent' : '')
+            : 'uncapped'
+        }
       };
     });
-    C.hbars(document.getElementById('chartReps'), repRows);
+
+    var ranked = C.hbars(host('reps'), repRows, {
+      rank: true,
+      axisLabel: 'Reveals',
+      unit: 'Reveals today',
+      aria: 'Reveals today by rep, highest first',
+      emptyText: 'No reps yet',
+      emptyHint: 'Reveals appear here once a rep is added and starts working.'
+    });
+
     C.table(document.getElementById('tableReps'),
       [{ key: 'label', label: 'Rep' },
        { key: 'value', label: 'Reveals today', num: true },
-       { key: 'note', label: 'Quota' }],
-      repRows);
-
-    /* Cost per won lead, not "ROI". There is no revenue column in the
-     * schema, so a return multiple would be invented. This reports what
-     * the data actually supports. LOWER is better here — the caption
-     * says so, because a bar chart where the longest bar is the worst
-     * result is otherwise read backwards. */
-    var roiRows = data.sources
-      .filter(function (r) { return r.costPerWon !== null; })
-      .map(function (r) {
-        return {
-          label: r.source,
-          value: r.costPerWon,
-          note: D.money(r.cost) + ' spent · ' + r.won + ' won of ' + r.leads
-        };
-      })
-      .sort(function (a, b) { return a.value - b.value; });
-
-    C.hbars(document.getElementById('chartRoi'), roiRows, {
-      format: function (v) { return D.money(v); }
-    });
-    C.table(document.getElementById('tableRoi'),
-      [{ key: 'label', label: 'Source' },
-       { key: 'value', label: 'Cost per won lead', num: true },
-       { key: 'note', label: 'Detail' }],
-      roiRows);
+       { key: 'quota', label: 'Daily quota' }],
+      ranked.map(function (r) {
+        return { label: r.label, value: r.value, quota: r.raw.quota };
+      }));
   }
 
 
   /* ══ Load ══════════════════════════════════════════════════════ */
 
   function load() {
+    chartsLoading();
+
     API.dashboard().then(function (res) {
       data = res;
       document.getElementById('tenantLine').textContent =
@@ -191,7 +255,14 @@
       tiles();
       feed();
       charts();
-    }).catch(D.fail);
+    }).catch(function (err) {
+      /* D.fail raises the toast. The skeletons would otherwise shimmer
+       * forever, which reads as "still loading" rather than "failed". */
+      C.empty(host('status'), 'Could not load', 'Reload the page to try again.');
+      C.empty(host('trend'),  'Could not load', 'Reload the page to try again.');
+      C.empty(host('reps'),   'Could not load', 'Reload the page to try again.');
+      D.fail(err);
+    });
   }
 
   /* Charts read theme-dependent palettes at draw time, so they have to

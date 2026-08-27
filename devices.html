@@ -17,8 +17,8 @@
   <link rel="stylesheet" href="app.css?v=6">
   <!-- FIRST script on the page. Turns phones and tablets away before
        any markup renders — see desktop-only.js. -->
-  <script src="desktop-only.js?v=4"></script>
-  <script src="theme.js?v=4"></script>
+  <script src="desktop-only.js?v=5"></script>
+  <script src="theme.js?v=5"></script>
 </head>
 
 <body data-requires="admin">
@@ -190,14 +190,16 @@
     <div class="modal__body">
       <div class="alert alert--info">
         Issue the certificate at your CA first, then paste its serial here.
-        Registering a serial does not create a certificate.
+        Registering a serial does not create a certificate. The steps below
+        are for the employee, on their own laptop &mdash; hand them over with
+        the certificate file.
       </div>
 
       <details class="cert-guide" open>
         <summary>
           <span>
-            <strong>Certificate setup instructions</strong>
-            <small>Issue, install and verify the laptop certificate before registering it.</small>
+            <strong>What the employee does on their laptop</strong>
+            <small>Send these six steps with the certificate. Nothing here touches the server.</small>
           </span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
@@ -206,63 +208,56 @@
           <div class="cert-step">
             <span class="cert-step__number">1</span>
             <div>
-              <h3>Choose the device code</h3>
-              <p>Use one unique code per laptop, such as <code>LAPTOP-001</code>. The certificate CN and the Device code field below must match.</p>
+              <h3>Check you received both pieces</h3>
+              <p>A certificate file ending in <code>.p12</code>, and its password &mdash; sent through a <strong>different channel</strong> (file by email, password by phone or chat). You also need your device code, such as <code>LAPTOP-001</code>.</p>
+              <p>If both arrived in the same message, stop and tell IT. That certificate has to be reissued.</p>
             </div>
           </div>
 
           <div class="cert-step">
             <span class="cert-step__number">2</span>
             <div>
-              <h3>Issue the certificate on the offline CA computer</h3>
-              <p>Create <code>client-ext.cnf</code> beside <code>company-ca.crt</code> and the encrypted <code>company-ca.key</code>:</p>
-              <pre><code>basicConstraints=critical,CA:FALSE
-keyUsage=critical,digitalSignature,keyEncipherment
-extendedKeyUsage=clientAuth
-subjectKeyIdentifier=hash
-authorityKeyIdentifier=keyid,issuer</code></pre>
-              <p>Replace <code>LAPTOP-001</code> consistently, then run:</p>
-              <pre><code>openssl req -newkey rsa:2048 -nodes \
-  -keyout laptop-001.key -out laptop-001.csr \
-  -subj "/CN=LAPTOP-001"
-
-openssl x509 -req -in laptop-001.csr \
-  -CA company-ca.crt -CAkey company-ca.key \
-  -CAcreateserial -out laptop-001.crt \
-  -days 365 -sha256 -extfile client-ext.cnf</code></pre>
-              <div class="cert-warning"><strong>Never run this on the web server.</strong> Never upload or share <code>company-ca.key</code> or its passphrase.</div>
+              <h3>Do this on the laptop you actually work on</h3>
+              <p>Signed in to Windows as yourself. The certificate installs into <em>your</em> user account on <em>this</em> machine &mdash; another Windows account on the same laptop will not see it, and neither will a second computer.</p>
             </div>
           </div>
 
           <div class="cert-step">
             <span class="cert-step__number">3</span>
             <div>
-              <h3>Verify it and copy the registration values</h3>
-              <pre><code>openssl verify -CAfile company-ca.crt laptop-001.crt
-openssl x509 -in laptop-001.crt \
-  -noout -subject -serial -enddate</code></pre>
-              <p>Verification must return <code>OK</code>. Copy the CN, serial and expiry into the fields below.</p>
+              <h3>Install it</h3>
+              <p>Open <strong>PowerShell</strong> in the folder holding the file and run this, using your own file name and password. Administrator rights are not needed.</p>
+              <pre><code>certutil -user -importPFX -p "&lt;password&gt;" My laptop-001.p12 NoExport</code></pre>
+              <p>Prefer clicking? Double-click the <code>.p12</code> &rarr; <strong>Current User</strong> &rarr; enter the password &rarr; leave <strong>&ldquo;Mark this key as exportable&rdquo; unticked</strong> &rarr; store it in <strong>Personal</strong>.</p>
+              <div class="cert-warning"><strong>Leave that box unticked.</strong> Ticking it lets the certificate be copied off this laptop, which defeats the entire point of issuing it.</div>
             </div>
           </div>
 
           <div class="cert-step">
             <span class="cert-step__number">4</span>
             <div>
-              <h3>Package and install it on the Windows laptop</h3>
-              <pre><code>openssl pkcs12 -export -out laptop-001.p12 \
-  -inkey laptop-001.key -in laptop-001.crt \
-  -certfile company-ca.crt</code></pre>
-              <p>Set a strong P12 password. Transfer the P12 and its password through separate channels, then install it while signed in as the employee:</p>
-              <pre><code>certutil -user -importPFX -p "&lt;pfx-password&gt;" My laptop-001.p12 NoExport</code></pre>
-              <p><code>NoExport</code> prevents the employee from copying the device identity to another computer.</p>
+              <h3>Confirm it is there</h3>
+              <pre><code>Get-ChildItem Cert:\CurrentUser\My |
+  Select-Object Subject, SerialNumber, NotAfter</code></pre>
+              <p>Your device code should appear as <code>CN=LAPTOP-001</code>. Send that serial number back to IT so it can be matched against this page.</p>
             </div>
           </div>
 
           <div class="cert-step">
             <span class="cert-step__number">5</span>
             <div>
-              <h3>Register, activate and test</h3>
-              <p>Complete the form, click <strong>Register</strong>, then activate the pending device from the table. Keep enforcement in <strong>Log only</strong> until the laptop signs in successfully and Recent denials shows no certificate error.</p>
+              <h3>Delete the file and the password</h3>
+              <p>The certificate now lives inside Windows, so the <code>.p12</code> is a spare key lying around. Delete it from <strong>Downloads</strong>, empty the <strong>Recycle Bin</strong>, and delete the email or chat message carrying the password.</p>
+            </div>
+          </div>
+
+          <div class="cert-step">
+            <span class="cert-step__number">6</span>
+            <div>
+              <h3>Sign in to Datafort</h3>
+              <p>Use <strong>Edge or Chrome</strong>. The browser asks <em>&ldquo;Select a certificate to authenticate yourself&rdquo;</em> &mdash; choose the one showing your device code, then sign in as normal.</p>
+              <p>No prompt at all usually means the certificate went into a different Windows account, or you are in Firefox &mdash; Firefox keeps its own certificate store and needs <code>security.osclientcerts.autoload</code> set to <code>true</code> in <code>about:config</code>.</p>
+              <div class="cert-warning"><strong>Afterwards:</strong> never forward the certificate to anyone, and report a lost or stolen laptop the same day &mdash; it can only be shut out once IT revokes it here.</div>
             </div>
           </div>
         </div>
@@ -280,7 +275,7 @@ openssl x509 -in laptop-001.crt \
         <label class="field__label" for="devSerial">Certificate serial</label>
         <input class="input" type="text" id="devSerial" placeholder="8A91F23B" style="font-family:ui-monospace,monospace">
         <span style="font-size:12px;color:var(--text-faint)">
-          From <code>openssl x509 -in laptop-001.crt -noout -serial</code>.
+          The serial the employee reads back in step 4.
           Colons and leading zeros are stripped automatically.
         </span>
       </div>
@@ -358,8 +353,8 @@ openssl x509 -in laptop-001.crt \
   </div>
 </div>
 
-<script src="api.js?v=4"></script>
-<script src="app.js?v=4"></script>
-<script src="devices.js?v=4"></script>
+<script src="api.js?v=5"></script>
+<script src="app.js?v=5"></script>
+<script src="devices.js?v=5"></script>
 </body>
 </html>

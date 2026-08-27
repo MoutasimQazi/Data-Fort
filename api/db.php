@@ -8,22 +8,10 @@
 
 declare(strict_types=1);
 
-// ── Response headers ──
-//
-// Deliberately NOT 'Access-Control-Allow-Origin: *'. Datafort is served
-// from one origin and its API is only ever called by its own pages. A
-// wildcard CORS header on an app holding purchased lead data would let
-// any website on the internet read it with the user's cookies attached.
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-header('Referrer-Policy: same-origin');
-header('Cache-Control: no-store');
-
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
+// Response headers + the tenant-agnostic helpers (body/respond/deny/
+// clientIp/requireDesktop/requireMethod) — shared with api/platform/*
+// via the same file, so they can't quietly drift into two copies.
+require_once __DIR__ . '/http.php';
 
 // ── Config ──
 $configPath = __DIR__ . '/config.php';
@@ -35,11 +23,19 @@ if (!is_file($configPath)) {
 $CONFIG = require $configPath;
 
 // ── Connection ──
+//
+// Which database this is depends on which tenant the request is for.
+// Single-tenant deployments (multi_tenant.enabled unset or false, which
+// is every deployment that predates this) get $CONFIG['db'] back
+// unchanged — see tenant-resolver.php's header for the full story.
+require_once __DIR__ . '/tenant-resolver.php';
+$dbConfig = resolveTenantDatabase($CONFIG);
+
 try {
     $pdo = new PDO(
-        "mysql:host={$CONFIG['db']['host']};port={$CONFIG['db']['port']};dbname={$CONFIG['db']['name']};charset=utf8mb4",
-        $CONFIG['db']['user'],
-        $CONFIG['db']['pass'],
+        "mysql:host={$dbConfig['host']};port={$dbConfig['port']};dbname={$dbConfig['name']};charset=utf8mb4",
+        $dbConfig['user'],
+        $dbConfig['pass'],
         [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -68,51 +64,23 @@ try {
 
 
 /* ══ Helpers ═══════════════════════════════════════════════════════ */
-
-/** JSON body of a POST as an array. */
-function body(): array
-{
-    $raw = file_get_contents('php://input');
-    $data = json_decode($raw ?: '', true);
-    return is_array($data) ? $data : [];
-}
-
-/** Send a JSON response and stop. */
-function respond(array $payload, int $status = 200): void
-{
-    http_response_code($status);
-    echo json_encode($payload);
-    exit;
-}
+//
+// body()/respond()/deny()/clientIp()/requireDesktop()/requireMethod()
+// now live in http.php (required above) — shared with api/platform/*.
+// Everything below is specific to a tenant's own database.
 
 /**
- * Refuse and stop, logging the real reason server-side.
+ * The one tenant row in the database $pdo is already connected to.
  *
- * NOT CURRENTLY CALLED. Every endpoint reaches for respond() with a 4xx
- * instead, which loses the server-side log line. Kept because the split
- * it encodes is the right one and endpoints should migrate to it — but
- * a helper nothing uses is a helper nobody maintains, so if it is still
- * unused at the next pass, delete it.
- *
- * Messages returned to the client are deliberately vague about WHY
- * something failed wherever the reason would tell an attacker
- * something — which accounts exist, which lead IDs are real. The
- * specific reason goes to the log, not the browser.
+ * Not filtered by slug: $pdo now points at ONE tenant's own database
+ * (single-tenant deployments always did; multi-tenant ones are routed
+ * there by resolveTenantDatabase() before this ever runs), and that
+ * database holds exactly one row in its local tenants table — so
+ * "the tenant" is simply the only one there is to find.
  */
-function deny(string $message, int $status = 403, string $logReason = ''): void
-{
-    if ($logReason !== '') {
-        error_log('[datafort] denied (' . $status . '): ' . $logReason);
-    }
-    respond(['error' => $message], $status);
-}
-
-/** Current tenant row, from the slug pinned in config. */
 function currentTenant(PDO $pdo, array $config): array
 {
-    $stmt = $pdo->prepare("SELECT * FROM tenants WHERE slug = ? LIMIT 1");
-    $stmt->execute([$config['tenant_slug']]);
-    $tenant = $stmt->fetch();
+    $tenant = $pdo->query("SELECT * FROM tenants LIMIT 1")->fetch();
 
     if (!$tenant) {
         respond(['error' => 'Tenant not provisioned'], 500);
@@ -139,16 +107,6 @@ function maskEmail(?string $value): string
     $at = strpos($value, '@');
     if ($at === false || $at < 1) return '****';
     return substr($value, 0, min(2, $at)) . '****' . substr($value, $at);
-}
-
-/** Client IP, as far as it can be trusted on this hosting. */
-function clientIp(): string
-{
-    // X-Forwarded-For is NOT consulted: on a direct Apache vhost it is
-    // attacker-controlled, and trusting it would let anyone forge the
-    // IP in the audit log. If a real proxy is introduced, add it here
-    // with an explicit allowlist of proxy addresses.
-    return (string) ($_SERVER['REMOTE_ADDR'] ?? '');
 }
 
 /**
@@ -182,51 +140,3 @@ function audit(PDO $pdo, int $tenantId, ?array $user, string $action, ?string $s
     }
 }
 
-/**
- * Refuses phones and tablets.
- *
- * Datafort's containment model assumes a company laptop. A phone cannot
- * practically hold the mTLS client certificate, no browser-side
- * deterrent in guard.js works there, and it is the one device an
- * employer cannot wipe or reclaim.
- *
- * desktop-only.js blocks this in the browser, before any markup paints.
- * This is the second half: without it, "request desktop site" or a
- * spoofed User-Agent would let a phone talk straight to the API and
- * skip the page entirely.
- *
- * ── BE CLEAR ABOUT WHAT THIS IS ──
- *
- * A User-Agent is attacker-controlled. Anyone who wants to get past
- * this can, with one header. It is POLICY enforcement, not a security
- * control — it stops the rep who idly opens Datafort on the bus, not
- * the one deliberately exfiltrating.
- *
- * The control that actually holds is the client certificate: with
- * device enforcement on, a phone is refused because it has none,
- * whatever it claims to be.
- */
-function requireDesktop(): void
-{
-    $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
-
-    // An empty User-Agent is curl, a script, or something hiding. Not a
-    // phone, and not this function's problem — auth handles those.
-    if ($ua === '') return;
-
-    if (preg_match('/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Windows Phone|Mobile|Tablet|Silk|Kindle/i', $ua)) {
-        respond([
-            'error'        => 'Datafort is not available on phones or tablets. ' .
-                              'Sign in from your company laptop.',
-            'mobile_blocked' => true,
-        ], 403);
-    }
-}
-
-/** Only allow a given HTTP method. */
-function requireMethod(string $method): void
-{
-    if (($_SERVER['REQUEST_METHOD'] ?? '') !== $method) {
-        respond(['error' => 'Method not allowed'], 405);
-    }
-}

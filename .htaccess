@@ -61,8 +61,23 @@
 
 # The Apache config template documents the security boundary and the CA
 # paths. No reason for it to be web-readable.
+#
+# private-ca/ holds CA private keys (see CERTIFICATES.md) — every
+# control in api/device.php is decorative if that directory is ever
+# reachable over HTTP, so it is blocked here as a second line, not
+# relied on as the only one: the keys should never be inside the web
+# docroot at all (CERTIFICATES.md says so), this is defence in depth
+# for the time between "generated" and "moved out."
+#
+# scripts/ holds CLI-only provisioning tools (multi-tenant setup). Each
+# one already refuses to run outside PHP_SAPI === 'cli', so this does
+# not change what they can do — it just stops them being invoked as a
+# web request at all, consistent with db.php/auth.php/device.php below
+# never being directly reachable either.
 <IfModule mod_alias.c>
     RedirectMatch 404 ^/apache/
+    RedirectMatch 404 ^/private-ca/
+    RedirectMatch 404 ^/scripts/
 </IfModule>
 
 

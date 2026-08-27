@@ -23,6 +23,11 @@ api/config.php
 *.crt
 *.crl
 
+# Offline certificate authority material. The public company-ca.crt may be
+# copied to Apache, but this entire working folder (especially its private key
+# and passphrase) must never enter Git or be uploaded to the web server.
+private-ca/
+
 # Local
 .DS_Store
 Thumbs.db

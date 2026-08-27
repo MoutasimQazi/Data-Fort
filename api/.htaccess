@@ -14,8 +14,12 @@
 # ── Files that must never be fetched directly ──
 # config.php holds live database credentials. db.php, auth.php and
 # device.php are libraries; requesting them directly runs them with no
-# context and no guard.
-<FilesMatch "^(config|config\.sample|db|auth|device|honeytoken|xlsx)\.php$">
+# context and no guard. This rule applies to every subdirectory too
+# (api/platform/ included) — FilesMatch matches on basename, so
+# api/platform/auth.php and api/platform/device.php are covered by the
+# same line as api/auth.php and api/device.php, deliberately, rather
+# than needing a second copy of this rule in api/platform/.htaccess.
+<FilesMatch "^(config|config\.sample|db|auth|device|honeytoken|xlsx|_boot|crypto|tenant-resolver|http)\.php$">
     Require all denied
 </FilesMatch>
 
