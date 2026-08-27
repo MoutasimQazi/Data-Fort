@@ -675,12 +675,15 @@
 .modal__box {
   width: 100%;
   max-width: 460px;
+  max-height: calc(100dvh - 40px);
   background: var(--surface);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
-.modal__box--wide { max-width: 660px; }
+.modal__box--wide { max-width: 760px; }
 
 .modal__head {
   display: flex;
@@ -691,7 +694,16 @@
 .modal__head h2 { font-size: 16px; }
 .modal__head .iconbtn { margin-left: auto; border: 0; }
 
-.modal__body { padding: 0 20px 18px; display: grid; gap: 14px; }
+.modal__body {
+  min-height: 0;
+  padding: 0 20px 18px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  grid-auto-rows: max-content;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 .modal__foot {
   display: flex;
@@ -700,6 +712,113 @@
   padding: 14px 20px;
   background: var(--surface-alt);
   border-top: 1px solid var(--border-soft);
+}
+
+/* Certificate enrolment guide inside Register laptop. It is open on first
+ * view because "issue a certificate first" is not an actionable instruction;
+ * experienced administrators can collapse it while entering later devices. */
+.cert-guide {
+  min-height: max-content;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.cert-guide summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+.cert-guide summary::-webkit-details-marker { display: none; }
+.cert-guide summary > span { display: grid; gap: 2px; }
+.cert-guide summary strong { font-size: 13.5px; color: var(--text); }
+.cert-guide summary small { font-size: 11.5px; color: var(--text-muted); }
+.cert-guide summary svg {
+  width: 17px;
+  height: 17px;
+  margin-left: auto;
+  flex: none;
+  color: var(--text-muted);
+  transition: transform .16s ease;
+}
+.cert-guide[open] summary svg { transform: rotate(180deg); }
+
+.cert-guide__body {
+  display: grid;
+  gap: 16px;
+  padding: 4px 14px 16px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.cert-step {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr);
+  gap: 10px;
+  padding-top: 14px;
+}
+.cert-step__number {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--brand);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.cert-step h3 { margin: 2px 0 5px; font-size: 13px; }
+.cert-step p {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.cert-step p:last-child { margin-bottom: 0; }
+.cert-step code,
+.cert-step pre {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.cert-step p code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+  color: var(--text);
+  font-size: .94em;
+}
+.cert-step pre {
+  max-width: 100%;
+  margin: 7px 0 9px;
+  padding: 10px 11px;
+  overflow-x: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre;
+}
+.cert-warning {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--red);
+  background: color-mix(in srgb, var(--red) 7%, transparent);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.cert-warning strong { color: var(--red); }
+
+@media (max-width: 700px) {
+  .modal { padding: 10px; }
+  .modal__box { max-height: calc(100dvh - 20px); }
+  .cert-guide summary small { display: none; }
 }
 
 

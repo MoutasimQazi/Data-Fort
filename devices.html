@@ -13,8 +13,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=4">
-  <link rel="stylesheet" href="app.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="app.css?v=6">
   <!-- FIRST script on the page. Turns phones and tablets away before
        any markup renders — see desktop-only.js. -->
   <script src="desktop-only.js?v=4"></script>
@@ -192,6 +192,81 @@
         Issue the certificate at your CA first, then paste its serial here.
         Registering a serial does not create a certificate.
       </div>
+
+      <details class="cert-guide" open>
+        <summary>
+          <span>
+            <strong>Certificate setup instructions</strong>
+            <small>Issue, install and verify the laptop certificate before registering it.</small>
+          </span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+
+        <div class="cert-guide__body">
+          <div class="cert-step">
+            <span class="cert-step__number">1</span>
+            <div>
+              <h3>Choose the device code</h3>
+              <p>Use one unique code per laptop, such as <code>LAPTOP-001</code>. The certificate CN and the Device code field below must match.</p>
+            </div>
+          </div>
+
+          <div class="cert-step">
+            <span class="cert-step__number">2</span>
+            <div>
+              <h3>Issue the certificate on the offline CA computer</h3>
+              <p>Create <code>client-ext.cnf</code> beside <code>company-ca.crt</code> and the encrypted <code>company-ca.key</code>:</p>
+              <pre><code>basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=clientAuth
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer</code></pre>
+              <p>Replace <code>LAPTOP-001</code> consistently, then run:</p>
+              <pre><code>openssl req -newkey rsa:2048 -nodes \
+  -keyout laptop-001.key -out laptop-001.csr \
+  -subj "/CN=LAPTOP-001"
+
+openssl x509 -req -in laptop-001.csr \
+  -CA company-ca.crt -CAkey company-ca.key \
+  -CAcreateserial -out laptop-001.crt \
+  -days 365 -sha256 -extfile client-ext.cnf</code></pre>
+              <div class="cert-warning"><strong>Never run this on the web server.</strong> Never upload or share <code>company-ca.key</code> or its passphrase.</div>
+            </div>
+          </div>
+
+          <div class="cert-step">
+            <span class="cert-step__number">3</span>
+            <div>
+              <h3>Verify it and copy the registration values</h3>
+              <pre><code>openssl verify -CAfile company-ca.crt laptop-001.crt
+openssl x509 -in laptop-001.crt \
+  -noout -subject -serial -enddate</code></pre>
+              <p>Verification must return <code>OK</code>. Copy the CN, serial and expiry into the fields below.</p>
+            </div>
+          </div>
+
+          <div class="cert-step">
+            <span class="cert-step__number">4</span>
+            <div>
+              <h3>Package and install it on the Windows laptop</h3>
+              <pre><code>openssl pkcs12 -export -out laptop-001.p12 \
+  -inkey laptop-001.key -in laptop-001.crt \
+  -certfile company-ca.crt</code></pre>
+              <p>Set a strong P12 password. Transfer the P12 and its password through separate channels, then install it while signed in as the employee:</p>
+              <pre><code>certutil -user -importPFX -p "&lt;pfx-password&gt;" My laptop-001.p12 NoExport</code></pre>
+              <p><code>NoExport</code> prevents the employee from copying the device identity to another computer.</p>
+            </div>
+          </div>
+
+          <div class="cert-step">
+            <span class="cert-step__number">5</span>
+            <div>
+              <h3>Register, activate and test</h3>
+              <p>Complete the form, click <strong>Register</strong>, then activate the pending device from the table. Keep enforcement in <strong>Log only</strong> until the laptop signs in successfully and Recent denials shows no certificate error.</p>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <div class="field">
         <label class="field__label" for="devCode">Device code</label>
