@@ -186,7 +186,13 @@
        data is from every other customer.</p>
   </div>
 
-  <div class="plans">
+  <!-- The three cards below render on load as an immediate, no-flash
+       fallback. If api/platform/public-plans.php answers, JS replaces
+       them with the live catalog from platform/pricing.html — so
+       editing a plan there reaches this page without a redeploy. If
+       the fetch fails for any reason, these stay exactly as they are:
+       a prospect never sees a broken or empty pricing page. -->
+  <div class="plans" id="plans">
 
     <!-- ══ Starter ══ -->
     <div class="plan">
@@ -246,9 +252,10 @@
   </div>
 
   <p class="pnote">
-    Prices shown as <code>₹XX,XXX</code> are placeholders — replace with your real figures directly in
-    <code>pricing.html</code>. Every plan's data is masked, logged and watermarked the same way; what changes
-    tier to tier is device-level security depth and how isolated your infrastructure is.
+    Plans and prices above are edited from the platform admin's Pricing page, not this file —
+    <code>₹XX,XXX</code> means nobody's replaced the placeholder there yet. Every plan's data is masked,
+    logged and watermarked the same way; what changes tier to tier is device-level security depth,
+    seat count, and how isolated your infrastructure is.
   </p>
 
 
@@ -348,6 +355,58 @@
   document.getElementById('themeBtn').addEventListener('click', function () {
     window.DatafortTheme.toggle();
   });
+
+  (function () {
+    'use strict';
+
+    function escapeHtml(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    var CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+
+    function renderPlans(plans) {
+      if (!plans || !plans.length) return; // keep the static fallback
+
+      // The middle plan (by display order) is shown featured, same
+      // visual role "Growth" plays in the static fallback — there is
+      // no separate "featured" flag in the catalog, this just keeps
+      // the same one-plan-stands-out layout without inventing one.
+      var featuredIndex = Math.floor((plans.length - 1) / 2);
+
+      document.getElementById('plans').innerHTML = plans.map(function (p, i) {
+        var featured = i === featuredIndex && plans.length > 1;
+        var reps = p.maxReps === null
+          ? 'Unlimited reps'
+          : ('Up to ' + p.maxReps + ' rep' + (p.maxReps === 1 ? '' : 's'));
+        var priceParts = String(p.priceLabel).split('/');
+        var amt = escapeHtml(priceParts[0]);
+        var per = priceParts.length > 1 ? '<span class="per">/' + escapeHtml(priceParts.slice(1).join('/')) + '</span>' : '';
+
+        return '<div class="plan' + (featured ? ' plan--featured' : '') + '">' +
+          (featured ? '<span class="plan__badge">Most chosen</span>' : '') +
+          '<div class="plan__name">' + escapeHtml(p.name) + '</div>' +
+          '<div class="plan__price"><span class="amt">' + amt + '</span>' + per + '</div>' +
+          '<div class="plan__note">' + escapeHtml(reps) + '</div>' +
+          '<a class="plan__cta" href="mailto:leads@moveneticsdigital.com?subject=' +
+            encodeURIComponent('Datafort ' + p.name) + '">Talk to us</a>' +
+          '<ul class="plan__features">' +
+            p.features.map(function (f) {
+              return '<li>' + CHECK_SVG + escapeHtml(f) + '</li>';
+            }).join('') +
+          '</ul>' +
+        '</div>';
+      }).join('');
+    }
+
+    fetch('api/platform/public-plans.php', { credentials: 'omit' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) { if (data) renderPlans(data.plans); })
+      .catch(function () { /* static fallback already on the page */ });
+  })();
 </script>
 </body>
 </html>
