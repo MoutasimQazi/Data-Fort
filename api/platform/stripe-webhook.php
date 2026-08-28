@@ -109,7 +109,16 @@ if ($stmt->rowCount() === 1) {
             "Customer: $email\n" .
             "Amount: " . ($session['currency'] ?? '') . " $amount\n" .
             "Stripe session: " . ($session['id'] ?? '') . "\n\n" .
-            "Provision this tenant from the Orders tab in the platform panel.\n"
+            "Provision this tenant from the Orders tab in the platform panel.\n",
+            [],
+            datafortEmailHtml('New paid order',
+                '<p style="margin:0 0 20px;color:#44444D;font-size:15px;line-height:1.7">A payment has completed and the tenant is ready for provisioning.</p>' .
+                '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;line-height:1.6">' .
+                '<tr><td style="padding:8px 0;color:#6B6B75;width:130px">Plan</td><td style="padding:8px 0;font-weight:600">' . mailHtml($metadata['plan_name'] ?? 'unknown') . '</td></tr>' .
+                '<tr><td style="padding:8px 0;color:#6B6B75">Customer</td><td style="padding:8px 0">' . mailHtml($email) . '</td></tr>' .
+                '<tr><td style="padding:8px 0;color:#6B6B75">Amount</td><td style="padding:8px 0">' . mailHtml(($session['currency'] ?? '') . ' ' . $amount) . '</td></tr>' .
+                '<tr><td style="padding:8px 0;color:#6B6B75">Session</td><td style="padding:8px 0;font-family:monospace;font-size:12px">' . mailHtml($session['id'] ?? '') . '</td></tr></table>',
+                'BILLING NOTIFICATION')
         );
     }
 }

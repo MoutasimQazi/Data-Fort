@@ -65,7 +65,12 @@ if ($action === 'create') {
     sendAppMail($CONFIG, $email, 'Your Datafort account',
         "You have been given access to Datafort.\n\n" .
         "Set your password here (link valid for 7 days):\n$link\n\n" .
-        "You will only be able to sign in from a company laptop.\n");
+        "You will only be able to sign in from a company laptop.\n",
+        [],
+        datafortActionEmail('Your Datafort account is ready',
+            'You have been given secure access to Datafort.',
+            'Set your password', $link,
+            'This link expires in 7 days. Sign-in may be restricted to an enrolled company laptop.'));
 
     audit($pdo, $tid, $user, 'user', $email,
         'Created ' . $role . ' account, quota ' . $quota . '/day', $ctx['device']);

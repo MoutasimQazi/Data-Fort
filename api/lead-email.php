@@ -75,7 +75,12 @@ $headers = [
 
 $signature = "\n\n--\n" . $user['name'] . "\n" . $mail['from_name'];
 
-$sent = sendAppMail($CONFIG, $lead['email'], $subject, $message . $signature, $headers);
+$leadHtml = datafortEmailHtml($subject,
+    '<div style="color:#44444D;font-size:15px;line-height:1.75">' . nl2br(mailHtml($message)) . '</div>' .
+    '<div style="margin-top:28px;padding-top:18px;border-top:1px solid #EEEEF0;color:#6B6B75;font-size:13px;line-height:1.6">' .
+    mailHtml($user['name']) . '<br><strong style="color:#16181B">' . mailHtml($mail['from_name']) . '</strong></div>',
+    'MESSAGE FROM DATAFORT');
+$sent = sendAppMail($CONFIG, $lead['email'], $subject, $message . $signature, $headers, $leadHtml);
 
 /* The audit row records that a message went to this LEAD — never the
  * address itself. An audit log containing every recipient address is a

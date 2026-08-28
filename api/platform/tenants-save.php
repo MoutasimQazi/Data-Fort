@@ -284,7 +284,10 @@ switch ($action) {
 
         sendAppMail($CONFIG, $target['contact_email'], 'Your Datafort administrator account',
             "Your Datafort account is ready.\n\n" .
-            "Set your password here (link valid for 7 days):\n$inviteLink\n");
+            "Set your password here (link valid for 7 days):\n$inviteLink\n", [],
+            datafortActionEmail('Your Datafort workspace is ready',
+                'Your administrator account has been created securely.',
+                'Create your password', $inviteLink, 'This one-time link expires in 7 days.'));
 
         $pdo->prepare(
             "UPDATE platform_tenants SET admin_seeded_at = NOW(), status = IF(status='provisioning','active',status) WHERE id = ?"

@@ -52,7 +52,16 @@ if ($notifyTo) {
         "Name: $name\nEmail: $email\n" .
         ($company ? "Company: $company\n" : '') .
         ($plan ? "Plan: $plan\n" : '') .
-        ($message ? "\nMessage:\n$message\n" : '')
+        ($message ? "\nMessage:\n$message\n" : ''),
+        [],
+        datafortEmailHtml('New pricing inquiry',
+            '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;line-height:1.6">' .
+            '<tr><td style="padding:8px 0;color:#6B6B75;width:110px">Name</td><td style="padding:8px 0;font-weight:600">' . mailHtml($name) . '</td></tr>' .
+            '<tr><td style="padding:8px 0;color:#6B6B75">Email</td><td style="padding:8px 0">' . mailHtml($email) . '</td></tr>' .
+            ($company ? '<tr><td style="padding:8px 0;color:#6B6B75">Company</td><td style="padding:8px 0">' . mailHtml($company) . '</td></tr>' : '') .
+            ($plan ? '<tr><td style="padding:8px 0;color:#6B6B75">Plan</td><td style="padding:8px 0">' . mailHtml($plan) . '</td></tr>' : '') .
+            '</table>' . ($message ? '<div style="margin-top:22px;padding:18px;background:#FAFAFB;border-radius:10px;color:#44444D;font-size:14px;line-height:1.7">' . nl2br(mailHtml($message)) . '</div>' : ''),
+            'SALES NOTIFICATION')
     );
 }
 

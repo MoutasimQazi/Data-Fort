@@ -224,7 +224,10 @@ out("  [3/5] first admin seeded: {$tenant['contact_email']}");
 // link as a CLI fallback if the mail server rejects the message.
 if (sendAppMail($CONFIG, $tenant['contact_email'], 'Your Datafort administrator account',
     "Your Datafort account is ready.\n\n" .
-    "Set your password here (link valid for 7 days):\n$inviteLink\n")) {
+    "Set your password here (link valid for 7 days):\n$inviteLink\n", [],
+    datafortActionEmail('Your Datafort workspace is ready',
+        'Your administrator account has been created securely.',
+        'Create your password', $inviteLink, 'This one-time link expires in 7 days.'))) {
     out("        invite emailed successfully");
 } else {
     out("        email failed; send this invite link manually:");

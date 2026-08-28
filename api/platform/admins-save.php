@@ -61,7 +61,10 @@ if ($action === 'create') {
     $link = issueInvite($pdo, $newId, $CONFIG['multi_tenant']['base_domain'] ?? '');
     sendAppMail($CONFIG, $email, 'Your Datafort platform account',
         "You have been invited to administer the Datafort platform.\n\n" .
-        "Set your password here (link valid for 7 days):\n$link\n");
+        "Set your password here (link valid for 7 days):\n$link\n", [],
+        datafortActionEmail('Platform invitation',
+            'You have been invited to administer the Datafort platform.',
+            'Accept invitation', $link, 'This one-time link expires in 7 days.'));
 
     platformAudit($pdo, $admin, 'platform_admin_create', $email, "Invited \"$name\"");
 
@@ -92,7 +95,10 @@ switch ($action) {
         // dangerous than a stale tenant invite link is today.
         $link = issueInvite($pdo, $targetId, $CONFIG['multi_tenant']['base_domain'] ?? '');
         sendAppMail($CONFIG, $target['email'], 'Your Datafort platform invite',
-            "Set your Datafort platform password here (link valid for 7 days):\n$link\n");
+            "Set your Datafort platform password here (link valid for 7 days):\n$link\n", [],
+            datafortActionEmail('Your invitation is ready',
+                'A fresh Datafort platform invitation has been issued for you.',
+                'Set your password', $link, 'This one-time link expires in 7 days.'));
         platformAudit($pdo, $admin, 'platform_admin_create', $target['email'], 'Invite link resent');
         respond(['ok' => true, 'inviteLink' => $link]);
 

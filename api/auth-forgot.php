@@ -59,7 +59,12 @@ if ($user && $user['status'] !== 'suspended') {
         "A password reset was requested for your Datafort account.\n\n" .
         "$link\n\n" .
         "This link works once and expires in 30 minutes.\n" .
-        "If you did not request it, tell your administrator — the request has been logged.\n"
+        "If you did not request it, tell your administrator — the request has been logged.\n",
+        [],
+        datafortActionEmail('Reset your password',
+            'A password reset was requested for your Datafort account.',
+            'Reset password', $link,
+            'This link works once and expires in 30 minutes. If you did not request it, tell your administrator.')
     );
 
     audit($pdo, (int) $tenant['id'], $user, 'login', $email, 'Password reset requested', $check['device']);
