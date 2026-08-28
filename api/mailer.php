@@ -43,7 +43,8 @@ function datafortEmailHtml(string $title, string $content, string $eyebrow = 'SE
         . '<h1 style="margin:0 0 18px;color:#0B0B0C;font-family:Poppins,Segoe UI,Arial,sans-serif;font-size:27px;line-height:1.25">' . $safeTitle . '</h1>'
         . $content
         . '</td></tr><tr><td style="padding:20px 32px;background:#FAFAFB;border-top:1px solid #EEEEF0;color:#6B6B75;font-size:12px;line-height:1.6">'
-        . 'Sent securely by Datafort &middot; FolksFirst Labs<br>Please do not forward account-access links.'</n+        . '</td></tr></table></td></tr></table></body></html>';
+        . 'Sent securely by Datafort &middot; FolksFirst Labs<br>Please do not forward account-access links.'
+        . '</td></tr></table></td></tr></table></body></html>';
 }
 
 function datafortActionEmail(string $title, string $message, string $buttonText, string $url, string $note = ''): string {
