@@ -34,6 +34,19 @@
     }
     .ptop__brand { display: flex; align-items: center; gap: 10px; }
     .ptop__brand img { width: 26px; height: auto; }
+    /* Unlike the sidebar/login panel (permanently near-black chrome,
+     * always the white-knockout mark), this bar's background follows
+     * the site theme — light background in light mode — so it needs
+     * the full-colour mark there and the white one only once the
+     * background actually goes dark. Same three-state pattern as
+     * style.css's own dark-theme tokens. */
+    .ptop__brand .i-dark { display: none; }
+    :root[data-theme="dark"] .ptop__brand .i-light { display: none; }
+    :root[data-theme="dark"] .ptop__brand .i-dark { display: inline; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .ptop__brand .i-light { display: none; }
+      :root:not([data-theme="light"]) .ptop__brand .i-dark { display: inline; }
+    }
     .ptop__brand .word {
       font-family: var(--font-head); font-weight: 700; font-size: 15px;
       letter-spacing: .04em; color: var(--text);
@@ -163,7 +176,8 @@
 
   <div class="ptop">
     <a class="ptop__brand" href="login.html" style="text-decoration:none">
-      <img src="brand/logo-mark-light.png" width="363" height="414" alt="" aria-hidden="true">
+      <img class="i-light" src="brand/logo-mark.png" width="363" height="414" alt="" aria-hidden="true">
+      <img class="i-dark" src="brand/logo-mark-light.png" width="363" height="414" alt="" aria-hidden="true">
       <span class="word">DATAFORT</span>
     </a>
     <div class="ptop__spacer"></div>
