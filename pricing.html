@@ -228,6 +228,8 @@
        data is from every other customer.</p>
   </div>
 
+  <div class="alert alert--info" id="checkoutStatus" hidden style="max-width:640px;margin:0 auto 24px"></div>
+
   <!-- The three cards below render on load as an immediate, no-flash
        fallback. If api/platform/public-plans.php answers, JS replaces
        them with the live catalog from platform/pricing.html — so
@@ -493,14 +495,15 @@
           '<div class="plan__name">' + escapeHtml(p.name) + '</div>' +
           '<div class="plan__price"><span class="amt">' + amt + '</span>' + per + '</div>' +
           '<div class="plan__note">' + escapeHtml(reps) + '</div>' +
-          // A Stripe Payment Link means this plan is self-serve — go
-          // straight to Stripe's own hosted checkout. No link means
-          // sales-assisted: open the lead-capture form instead. Set
-          // per plan on platform/pricing.html — this is how Enterprise
-          // stays "Talk to us" while Starter/Growth can be self-serve,
-          // with no special-casing of plan names anywhere in this file.
-          (p.stripeLink
-            ? '<a class="plan__cta" href="' + escapeHtml(p.stripeLink) + '" target="_blank" rel="noopener">Subscribe</a>'
+          // purchasable means this plan has a Stripe Price ID set on
+          // platform/pricing.html — Subscribe starts a real server-side
+          // Checkout Session (see the click handler below). Not
+          // purchasable means sales-assisted: open the lead-capture form
+          // instead. This is how Enterprise stays "Talk to us" while
+          // Starter/Growth can be self-serve, with no special-casing of
+          // plan names anywhere in this file.
+          (p.purchasable
+            ? '<button type="button" class="plan__cta" data-subscribe="' + p.id + '">Subscribe</button>'
             : '<button type="button" class="plan__cta" data-open-contact="' + escapeHtml(p.name) + '">Talk to us</button>') +
           '<ul class="plan__features">' +
             p.features.map(function (f) {
@@ -515,6 +518,60 @@
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) { if (data) renderPlans(data.plans); })
       .catch(function () { /* static fallback already on the page */ });
+
+    // Event delegation — catches Subscribe buttons from both the static
+    // fallback cards (none exist there today, purchasable is live-catalog
+    // only) and the ones renderPlans() inserts.
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-subscribe]');
+      if (!btn) return;
+      var planId = btn.dataset.subscribe;
+
+      btn.disabled = true;
+      var original = btn.textContent;
+      btn.textContent = 'Redirecting…';
+
+      fetch('api/platform/checkout-start.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'omit',
+        body: JSON.stringify({ planId: planId })
+      })
+        .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+        .then(function (r) {
+          if (!r.ok || !r.data.url) {
+            btn.disabled = false;
+            btn.textContent = original;
+            alert((r.data && r.data.error) || 'Could not start checkout. Try again shortly.');
+            return;
+          }
+          location.href = r.data.url;
+        })
+        .catch(function () {
+          btn.disabled = false;
+          btn.textContent = original;
+          alert('Could not reach the server. Check your connection and try again.');
+        });
+    });
+  })();
+
+  (function () {
+    'use strict';
+
+    // success_url/cancel_url (built server-side in checkout-start.php)
+    // land back here with one of these — a one-time message, not
+    // persisted state; nothing here confirms the order actually
+    // recorded, since that's the webhook's job, not this page's.
+    var params = new URLSearchParams(location.search);
+    var checkout = params.get('checkout');
+    var box = document.getElementById('checkoutStatus');
+    if (checkout === 'success') {
+      box.textContent = 'Payment received — thanks! We’ll be in touch shortly to get your account set up.';
+      box.hidden = false;
+    } else if (checkout === 'cancelled') {
+      box.textContent = 'Checkout was cancelled — no charge was made. Pick a plan below whenever you’re ready.';
+      box.hidden = false;
+    }
   })();
 
   (function () {

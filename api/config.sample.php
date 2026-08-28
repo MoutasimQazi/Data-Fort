@@ -150,7 +150,27 @@ return [
         'from_email' => 'noreply@moveneticsdigital.com',
         // Reply-To points at a relay inbox, not the rep's own address —
         // otherwise the rep's mailbox becomes an unlogged side channel.
+        // Also where stripe-webhook.php sends the "new paid order" notice.
         'reply_to'   => 'leads@moveneticsdigital.com',
+    ],
+
+    // ── Stripe (Checkout + webhook) ──
+    // Fails closed: both checkout-start.php and stripe-webhook.php 503
+    // while enabled is false or secret_key is still 'CHANGE_ME'.
+    'stripe' => [
+        'enabled'        => false,
+
+        'secret_key'     => 'CHANGE_ME',   // sk_test_... or sk_live_...
+
+        // From the Stripe Dashboard once the webhook endpoint below is
+        // registered there — Developers -> Webhooks -> your endpoint ->
+        // "Signing secret". NOT the same thing as the secret key above.
+        'webhook_secret' => 'CHANGE_ME',   // whsec_...
+
+        // Must match which kind of secret_key is set above. Guards
+        // against a live event ever being accepted while test keys are
+        // configured, or vice versa, if the two are ever mismatched.
+        'live'           => false,
     ],
 
     // ── Watermark on revealed values (requirements 7.3) ──

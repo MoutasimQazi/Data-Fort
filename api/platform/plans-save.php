@@ -31,23 +31,23 @@ function readPlanInput(array $in): array
     $maxReps = ($maxRepsRaw === null || $maxRepsRaw === '') ? null : max(0, (int) $maxRepsRaw);
     $features = trim((string) ($in['features'] ?? ''));
     $sortOrder = max(0, (int) ($in['sortOrder'] ?? 0));
-    $stripeLink = trim((string) ($in['stripeLink'] ?? '')) ?: null;
+    $stripePriceId = trim((string) ($in['stripePriceId'] ?? '')) ?: null;
 
     if ($name === '' || $price === '') {
         respond(['error' => 'Plan name and a price label are both required.'], 400);
     }
-    if ($stripeLink !== null && !str_starts_with($stripeLink, 'https://')) {
-        respond(['error' => 'The Stripe Payment Link must start with https:// — paste it exactly as Stripe gave it to you.'], 400);
+    if ($stripePriceId !== null && !str_starts_with($stripePriceId, 'price_')) {
+        respond(['error' => 'The Stripe Price ID should start with price_ — copy it from the Product\'s pricing section in the Stripe Dashboard, not the Payment Link.'], 400);
     }
 
-    return [$name, $price, $maxReps, $features !== '' ? $features : null, $sortOrder, $stripeLink];
+    return [$name, $price, $maxReps, $features !== '' ? $features : null, $sortOrder, $stripePriceId];
 }
 
 
 /* ══ Create ════════════════════════════════════════════════════════ */
 
 if ($action === 'create') {
-    [$name, $price, $maxReps, $features, $sortOrder, $stripeLink] = readPlanInput($in);
+    [$name, $price, $maxReps, $features, $sortOrder, $stripePriceId] = readPlanInput($in);
 
     $dupe = $pdo->prepare("SELECT id FROM platform_plans WHERE name = ?");
     $dupe->execute([$name]);
@@ -56,9 +56,9 @@ if ($action === 'create') {
     }
 
     $pdo->prepare(
-        "INSERT INTO platform_plans (name, price_label, max_reps, features, stripe_payment_link, sort_order, is_active)
+        "INSERT INTO platform_plans (name, price_label, max_reps, features, stripe_price_id, sort_order, is_active)
          VALUES (?,?,?,?,?,?, 1)"
-    )->execute([$name, $price, $maxReps, $features, $stripeLink, $sortOrder]);
+    )->execute([$name, $price, $maxReps, $features, $stripePriceId, $sortOrder]);
 
     $newId = (int) $pdo->lastInsertId();
     platformAudit($pdo, $admin, 'plan_create', $name,
@@ -86,7 +86,7 @@ if (!$target) {
 switch ($action) {
 
     case 'update':
-        [$name, $price, $maxReps, $features, $sortOrder, $stripeLink] = readPlanInput($in);
+        [$name, $price, $maxReps, $features, $sortOrder, $stripePriceId] = readPlanInput($in);
 
         $dupe = $pdo->prepare("SELECT id FROM platform_plans WHERE name = ? AND id != ?");
         $dupe->execute([$name, $targetId]);
@@ -95,8 +95,8 @@ switch ($action) {
         }
 
         $pdo->prepare(
-            "UPDATE platform_plans SET name=?, price_label=?, max_reps=?, features=?, stripe_payment_link=?, sort_order=? WHERE id=?"
-        )->execute([$name, $price, $maxReps, $features, $stripeLink, $sortOrder, $targetId]);
+            "UPDATE platform_plans SET name=?, price_label=?, max_reps=?, features=?, stripe_price_id=?, sort_order=? WHERE id=?"
+        )->execute([$name, $price, $maxReps, $features, $stripePriceId, $sortOrder, $targetId]);
 
         platformAudit($pdo, $admin, 'plan_update', $name, 'Edited', null);
         break;

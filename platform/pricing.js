@@ -35,7 +35,7 @@
         '<td><strong>' + D.escape(p.name) + '</strong></td>' +
         '<td>' + D.escape(p.priceLabel) + '</td>' +
         '<td class="num">' + (p.maxReps === null ? '<span style="color:var(--text-faint)">Unlimited</span>' : p.maxReps) + '</td>' +
-        '<td>' + (p.stripeLink
+        '<td>' + (p.stripePriceId
           ? '<span class="badge badge--won">Self-serve</span>'
           : '<span class="badge badge--idle">Talk to us</span>') + '</td>' +
         '<td class="num">' + p.tenantCount + '</td>' +
@@ -60,7 +60,7 @@
     document.getElementById('pMaxReps').value = '';
     document.getElementById('pFeatures').value = '';
     document.getElementById('pSort').value = '0';
-    document.getElementById('pStripeLink').value = '';
+    document.getElementById('pStripePriceId').value = '';
     D.openModal('planModal');
   }
 
@@ -72,7 +72,7 @@
     document.getElementById('pMaxReps').value = p.maxReps === null ? '' : p.maxReps;
     document.getElementById('pFeatures').value = p.features.join('\n');
     document.getElementById('pSort').value = p.sortOrder;
-    document.getElementById('pStripeLink').value = p.stripeLink || '';
+    document.getElementById('pStripePriceId').value = p.stripePriceId || '';
     D.openModal('planModal');
   }
 
@@ -103,11 +103,11 @@
     var maxReps = document.getElementById('pMaxReps').value.trim();
     var features = document.getElementById('pFeatures').value.trim();
     var sortOrder = document.getElementById('pSort').value.trim();
-    var stripeLink = document.getElementById('pStripeLink').value.trim();
+    var stripePriceId = document.getElementById('pStripePriceId').value.trim();
 
     if (!name || !priceLabel) { D.toast('Plan name and price label are required.', 'error'); return; }
-    if (stripeLink && stripeLink.indexOf('https://') !== 0) {
-      D.toast('The Stripe Payment Link must start with https://', 'error');
+    if (stripePriceId && stripePriceId.indexOf('price_') !== 0) {
+      D.toast('The Stripe Price ID should start with price_ — copy it from the Product\'s pricing section, not the Payment Link.', 'error');
       return;
     }
 
@@ -116,7 +116,7 @@
       name: name, priceLabel: priceLabel,
       maxReps: maxReps === '' ? null : maxReps,
       features: features, sortOrder: sortOrder || 0,
-      stripeLink: stripeLink
+      stripePriceId: stripePriceId
     };
     if (editingId) payload.id = editingId;
 

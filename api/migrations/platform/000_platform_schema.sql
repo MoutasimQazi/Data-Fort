@@ -64,14 +64,22 @@ CREATE TABLE IF NOT EXISTS platform_plans (
   max_reps      SMALLINT UNSIGNED NULL,     -- NULL = unlimited (Enterprise-style)
   features      TEXT NULL,                  -- one bullet per line
 
-  -- A Stripe Payment Link (created in the Stripe Dashboard, no API
-  -- integration here — see platform/pricing.html's own note). NULL
-  -- means this plan is sales-assisted only: pricing.html shows "Talk
-  -- to us" and opens the lead-capture form instead of a buy button.
-  -- Nothing on this server ever holds a Stripe secret key or knows
-  -- whether a payment actually succeeded — that stays entirely in
-  -- Stripe's own dashboard, on purpose, per the no-webhook decision.
+  -- stripe_payment_link: an earlier, deliberately-simpler design
+  -- (a static Stripe Payment Link, no API keys touching this server
+  -- at all). Superseded by stripe_price_id below once server-side
+  -- Checkout Session creation + a verified webhook replaced it — left
+  -- here unused rather than dropped, since nothing destructive was
+  -- needed to retire it.
   stripe_payment_link VARCHAR(255) NULL,
+
+  -- A Stripe Price id (from a Product + recurring Price created in the
+  -- Stripe Dashboard — "price_..."). NULL means this plan is
+  -- sales-assisted only: pricing.html shows "Talk to us" and opens the
+  -- lead-capture form. Set: pricing.html's button creates a real
+  -- Checkout Session server-side (api/platform/checkout-start.php) and
+  -- sends the visitor to Stripe's own hosted page.
+  stripe_price_id VARCHAR(80) NULL,
+
   sort_order    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   is_active     TINYINT(1) NOT NULL DEFAULT 1,   -- inactive = kept for tenants already on it, hidden from new assignment
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -323,6 +331,55 @@ CREATE TABLE IF NOT EXISTS platform_leads (
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   KEY ix_pleads_status (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ══ Paid orders ═══════════════════════════════════════════════════
+--
+-- Written by the one webhook this codebase has — see
+-- api/platform/stripe-webhook.php. uq_orders_session is what makes
+-- that webhook idempotent: Stripe delivers webhooks at-least-once and
+-- may redeliver the same event, and INSERT ... ON DUPLICATE KEY
+-- UPDATE against this key means a redelivery updates the same row
+-- instead of creating a second one, safely even under concurrent
+-- delivery (MySQL takes the row/gap lock on the unique index for the
+-- statement's duration — a SELECT-then-INSERT pattern would not be
+-- safe here, there is a window between the two where a second
+-- concurrent delivery passes the same check).
+--
+-- `status` is OUR OWN fulfillment workflow (paid -> provisioned), not
+-- Stripe's payment_status — this is deliberately what turns "someone
+-- paid" into a todo list the platform admin can act on and check off,
+-- rather than something that only ever lived in the Stripe Dashboard.
+-- Auto-provisioning on payment is explicitly out of scope: CA
+-- generation and the Apache vhost step are already deliberately
+-- manual elsewhere in this project (CERTIFICATES.md) — the admin
+-- still provisions via tenant.html, using this row's email and plan.
+
+CREATE TABLE IF NOT EXISTS platform_orders (
+  id                     BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  stripe_session_id      VARCHAR(80) NOT NULL,
+  stripe_event_id        VARCHAR(80) NULL,
+  stripe_customer_id     VARCHAR(80) NULL,
+  stripe_subscription_id VARCHAR(80) NULL,
+
+  plan_id                INT UNSIGNED NULL,
+  plan_name_snapshot     VARCHAR(80) NULL,   -- survives the plan being edited/deleted later
+
+  customer_email         VARCHAR(190) NULL,
+  amount_total           INT UNSIGNED NULL,  -- cents, exactly as Stripe sends it — never a float
+  currency               VARCHAR(10) NULL,
+  payment_status         VARCHAR(40) NULL,   -- Stripe's own string, e.g. 'paid'
+  livemode                TINYINT(1) NOT NULL DEFAULT 0,
+
+  status                  ENUM('paid','provisioned') NOT NULL DEFAULT 'paid',
+
+  created_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uq_orders_session (stripe_session_id),
+  KEY ix_orders_status (status, created_at),
+  CONSTRAINT fk_orders_plan FOREIGN KEY (plan_id) REFERENCES platform_plans(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 

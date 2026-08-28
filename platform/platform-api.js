@@ -73,6 +73,9 @@ window.DatafortAPI = (function () {
     leads:     function (p) { return request('leads-list.php' + qs(p)); },
     saveLead:  function (b) { return request('leads-save.php', { method: 'POST', body: b }); },
 
+    orders:     function (p) { return request('orders-list.php' + qs(p)); },
+    saveOrder:  function (b) { return request('orders-save.php', { method: 'POST', body: b }); },
+
     admins:     function ()  { return request('admins-list.php'); },
     saveAdmin:  function (b) { return request('admins-save.php', { method: 'POST', body: b }); },
 

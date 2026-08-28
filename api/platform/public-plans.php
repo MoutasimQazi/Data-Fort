@@ -21,7 +21,7 @@ require_once __DIR__ . '/_boot.php';
 // be reached by an anonymous visitor, on purpose.
 
 $stmt = $pdo->prepare(
-    "SELECT name, price_label, max_reps, features, stripe_payment_link
+    "SELECT id, name, price_label, max_reps, features, stripe_price_id
        FROM platform_plans
       WHERE is_active = 1
       ORDER BY sort_order, name"
@@ -31,17 +31,22 @@ $stmt->execute();
 respond([
     'plans' => array_map(function (array $p): array {
         return [
+            // Needed by checkout-start.php's request body — nothing else
+            // on this public page has previously had to name a plan by
+            // id, only by its catalog fields below.
+            'id'         => (int) $p['id'],
             'name'       => $p['name'],
             'priceLabel' => $p['price_label'],
             'maxReps'    => $p['max_reps'] !== null ? (int) $p['max_reps'] : null,
             'features'   => $p['features']
                 ? array_values(array_filter(array_map('trim', explode("\n", str_replace("\r\n", "\n", $p['features'])))))
                 : [],
-            // A real, clickable URL when set — this IS meant to be
-            // public, unlike everything else this endpoint withholds.
-            // NULL means sales-assisted: pricing.html shows "Talk to
-            // us" for this plan instead of a buy button.
-            'stripeLink' => $p['stripe_payment_link'],
+            // True when self-serve Checkout is available for this plan —
+            // this IS meant to be public, unlike everything else this
+            // endpoint withholds. false means sales-assisted: pricing.html
+            // shows "Talk to us" for this plan instead of a buy button.
+            // The actual Price ID never leaves the server.
+            'purchasable' => $p['stripe_price_id'] !== null && $p['stripe_price_id'] !== '',
         ];
     }, $stmt->fetchAll()),
 ]);
