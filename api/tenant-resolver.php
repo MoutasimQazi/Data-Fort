@@ -126,6 +126,30 @@ function tenantSlugFromRequest(array $mt): string
 }
 
 /**
+ * The reverse of tenantSlugFromRequest(): given a slug, what host does
+ * that tenant actually live at? Needed anywhere code builds a URL FOR
+ * a tenant rather than resolving one FROM a request — an invite link,
+ * for instance.
+ *
+ * Naively building {slug}.{base_domain} breaks for exactly the same
+ * tenant host_overrides exists for: Movenetics lives at
+ * "datafort.{base_domain}", not "movenetics.{base_domain}" — that
+ * second host was never registered anywhere and doesn't resolve. This
+ * scans host_overrides for a host mapped to this slug and uses it if
+ * found; every other tenant has no override and gets the normal
+ * {slug}.{base_domain} pattern, which is correct for them.
+ */
+function tenantPublicHost(string $slug, array $mt): string
+{
+    foreach (($mt['host_overrides'] ?? []) as $host => $mappedSlug) {
+        if ($mappedSlug === $slug) {
+            return (string) $host;
+        }
+    }
+    return $slug . '.' . ($mt['base_domain'] ?? '');
+}
+
+/**
  * A short-lived PDO connection to the platform database, used only to
  * resolve one tenant row. Not reused across requests — PHP's
  * shared-nothing model means there is nothing to reuse it into.

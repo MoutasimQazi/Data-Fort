@@ -47,6 +47,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require_once __DIR__ . '/../api/platform/crypto.php';
+require_once __DIR__ . '/../api/tenant-resolver.php';   // for tenantPublicHost()
 
 function out(string $line): void { fwrite(STDOUT, $line . "\n"); }
 function fail(string $line): never { fwrite(STDERR, "ERROR: $line\n"); exit(1); }
@@ -215,7 +216,7 @@ function seedTenantAndAdmin(PDO $tenantPdo, string $slug, string $name, string $
     return $token;
 }
 $resetToken = seedTenantAndAdmin($tenantPdo, $slug, $tenant['name'], $tenant['contact_email']);
-$inviteLink = "https://{$slug}." . ($mt['base_domain'] ?? 'datafort.io') . "/reset.html?token={$resetToken}";
+$inviteLink = "https://" . tenantPublicHost($slug, $mt) . "/reset.html?token={$resetToken}";
 $platformPdo->prepare("UPDATE platform_tenants SET admin_seeded_at=NOW() WHERE id=?")->execute([$tenant['id']]);
 out("  [3/5] first admin seeded: {$tenant['contact_email']}");
 // Printed, not emailed: SERVER-REQUIREMENTS.md section 5 (SPF for the

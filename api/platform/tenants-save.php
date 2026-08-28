@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_boot.php';
 require_once __DIR__ . '/crypto.php';
+require_once __DIR__ . '/../tenant-resolver.php';   // for tenantPublicHost()
 
 requireMethod('POST');
 
@@ -268,7 +269,7 @@ switch ($action) {
              VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))"
         )->execute([hash('sha256', $token), $adminId]);
 
-        $inviteLink = 'https://' . $target['subdomain_slug'] . '.' . ($CONFIG['multi_tenant']['base_domain'] ?? '') . '/reset.html?token=' . $token;
+        $inviteLink = 'https://' . tenantPublicHost($target['subdomain_slug'], $CONFIG['multi_tenant']) . '/reset.html?token=' . $token;
 
         $pdo->prepare(
             "UPDATE platform_tenants SET admin_seeded_at = NOW(), status = IF(status='provisioning','active',status) WHERE id = ?"
