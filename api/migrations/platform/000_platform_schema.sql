@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS platform_plans (
   -- Backs the seed block's ON DUPLICATE KEY UPDATE below, and stops
   -- the platform admin creating two plans that only differ by case.
   UNIQUE KEY uq_plans_name (name)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE IF NOT EXISTS platform_tenants (
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS platform_tenants (
   KEY ix_tenants_status (status),
   KEY ix_tenants_plan (plan_id),
   CONSTRAINT fk_tenants_plan FOREIGN KEY (plan_id) REFERENCES platform_plans(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- ══ Platform admins ═══════════════════════════════════════════════
@@ -141,7 +141,7 @@ CREATE TABLE IF NOT EXISTS platform_admins (
   last_seen_at  DATETIME NULL,
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- ══ Platform sessions ═════════════════════════════════════════════
@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS platform_admin_sessions (
   KEY ix_padmin_sessions_admin (admin_id),
   KEY ix_padmin_sessions_expiry (expires_at),
   CONSTRAINT fk_padmin_sessions_admin FOREIGN KEY (admin_id) REFERENCES platform_admins(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE IF NOT EXISTS platform_login_attempts (
@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS platform_login_attempts (
   at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY ix_pattempts_email (email, at),
   KEY ix_pattempts_ip (ip, at)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE IF NOT EXISTS platform_password_resets (
@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS platform_password_resets (
   used_at    DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_preset_admin FOREIGN KEY (admin_id) REFERENCES platform_admins(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- ══ Platform devices — mTLS for the platform owner's own laptops ══
@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS platform_devices (
   updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   CONSTRAINT fk_pdevices_admin FOREIGN KEY (admin_id) REFERENCES platform_admins(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE IF NOT EXISTS platform_device_auth_log (
@@ -247,7 +247,7 @@ CREATE TABLE IF NOT EXISTS platform_device_auth_log (
 
   KEY ix_pdal_at (at),
   KEY ix_pdal_serial (certificate_serial)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- ══ Platform audit log ════════════════════════════════════════════
@@ -284,7 +284,7 @@ CREATE TABLE IF NOT EXISTS platform_audit_log (
   KEY ix_paudit_actor (actor_id, at),
   KEY ix_paudit_action (action, at),
   CONSTRAINT fk_paudit_tenant FOREIGN KEY (tenant_id) REFERENCES platform_tenants(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- ══ Seed ══════════════════════════════════════════════════════════
