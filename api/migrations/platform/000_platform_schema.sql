@@ -60,9 +60,18 @@ SET NAMES utf8mb4;
 CREATE TABLE IF NOT EXISTS platform_plans (
   id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name          VARCHAR(80) NOT NULL,
-  price_label   VARCHAR(40) NOT NULL,       -- display text: '₹25,000/mo', 'Custom' — not a billing integration
+  price_label   VARCHAR(40) NOT NULL,       -- display text: '₹25,000/mo', 'Custom'
   max_reps      SMALLINT UNSIGNED NULL,     -- NULL = unlimited (Enterprise-style)
   features      TEXT NULL,                  -- one bullet per line
+
+  -- A Stripe Payment Link (created in the Stripe Dashboard, no API
+  -- integration here — see platform/pricing.html's own note). NULL
+  -- means this plan is sales-assisted only: pricing.html shows "Talk
+  -- to us" and opens the lead-capture form instead of a buy button.
+  -- Nothing on this server ever holds a Stripe secret key or knows
+  -- whether a payment actually succeeded — that stays entirely in
+  -- Stripe's own dashboard, on purpose, per the no-webhook decision.
+  stripe_payment_link VARCHAR(255) NULL,
   sort_order    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   is_active     TINYINT(1) NOT NULL DEFAULT 1,   -- inactive = kept for tenants already on it, hidden from new assignment
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -493,7 +493,15 @@
           '<div class="plan__name">' + escapeHtml(p.name) + '</div>' +
           '<div class="plan__price"><span class="amt">' + amt + '</span>' + per + '</div>' +
           '<div class="plan__note">' + escapeHtml(reps) + '</div>' +
-          '<button type="button" class="plan__cta" data-open-contact="' + escapeHtml(p.name) + '">Talk to us</button>' +
+          // A Stripe Payment Link means this plan is self-serve — go
+          // straight to Stripe's own hosted checkout. No link means
+          // sales-assisted: open the lead-capture form instead. Set
+          // per plan on platform/pricing.html — this is how Enterprise
+          // stays "Talk to us" while Starter/Growth can be self-serve,
+          // with no special-casing of plan names anywhere in this file.
+          (p.stripeLink
+            ? '<a class="plan__cta" href="' + escapeHtml(p.stripeLink) + '" target="_blank" rel="noopener">Subscribe</a>'
+            : '<button type="button" class="plan__cta" data-open-contact="' + escapeHtml(p.name) + '">Talk to us</button>') +
           '<ul class="plan__features">' +
             p.features.map(function (f) {
               return '<li>' + CHECK_SVG + escapeHtml(f) + '</li>';

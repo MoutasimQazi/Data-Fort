@@ -21,7 +21,7 @@ require_once __DIR__ . '/_boot.php';
 // be reached by an anonymous visitor, on purpose.
 
 $stmt = $pdo->prepare(
-    "SELECT name, price_label, max_reps, features
+    "SELECT name, price_label, max_reps, features, stripe_payment_link
        FROM platform_plans
       WHERE is_active = 1
       ORDER BY sort_order, name"
@@ -37,6 +37,11 @@ respond([
             'features'   => $p['features']
                 ? array_values(array_filter(array_map('trim', explode("\n", str_replace("\r\n", "\n", $p['features'])))))
                 : [],
+            // A real, clickable URL when set — this IS meant to be
+            // public, unlike everything else this endpoint withholds.
+            // NULL means sales-assisted: pricing.html shows "Talk to
+            // us" for this plan instead of a buy button.
+            'stripeLink' => $p['stripe_payment_link'],
         ];
     }, $stmt->fetchAll()),
 ]);

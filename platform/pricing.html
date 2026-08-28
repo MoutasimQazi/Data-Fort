@@ -99,7 +99,7 @@
           <div class="tablewrap">
             <table class="table">
               <thead>
-                <tr><th>Plan</th><th>Price</th><th>Max reps</th><th>Tenants</th><th>Status</th><th class="shrink"></th></tr>
+                <tr><th>Plan</th><th>Price</th><th>Max reps</th><th>Purchase</th><th>Tenants</th><th>Status</th><th class="shrink"></th></tr>
               </thead>
               <tbody id="rows"></tbody>
             </table>
@@ -155,6 +155,17 @@ Priority support"></textarea>
         <label class="field__label" for="pSort">Display order</label>
         <input class="input" type="number" id="pSort" min="0" value="0">
         <span style="font-size:12px;color:var(--text-faint)">Lower numbers show first.</span>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="pStripeLink">Stripe Payment Link (optional)</label>
+        <input class="input" type="url" id="pStripeLink" placeholder="https://buy.stripe.com/..." style="font-family:ui-monospace,monospace;font-size:12.5px">
+        <span style="font-size:12px;color:var(--text-faint)">
+          Create this in your Stripe Dashboard first, then paste the link here — nothing about
+          Stripe touches this server otherwise. Set: the pricing page shows "Subscribe" and sends
+          the visitor straight there. Left blank: it shows "Talk to us" and opens the contact form
+          instead — this is how Enterprise/Custom stays sales-assisted while Starter/Growth can be self-serve.
+        </span>
       </div>
     </div>
 

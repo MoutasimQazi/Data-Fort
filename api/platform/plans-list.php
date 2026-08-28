@@ -34,6 +34,7 @@ respond([
             'sortOrder'   => (int) $p['sort_order'],
             'isActive'    => (bool) $p['is_active'],
             'tenantCount' => (int) $p['tenant_count'],
+            'stripeLink'  => $p['stripe_payment_link'],
         ];
     }, $stmt->fetchAll()),
 ]);
