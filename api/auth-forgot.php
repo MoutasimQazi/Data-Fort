@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/mailer.php';
 
 requireMethod('POST');
 
@@ -52,14 +53,13 @@ if ($user && $user['status'] !== 'suspended') {
 
     $link = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/reset.html?token=' . $token;
 
-    @mail(
+    sendAppMail($CONFIG,
         $email,
         'Reset your Datafort password',
         "A password reset was requested for your Datafort account.\n\n" .
         "$link\n\n" .
         "This link works once and expires in 30 minutes.\n" .
-        "If you did not request it, tell your administrator — the request has been logged.\n",
-        'From: ' . $CONFIG['mail']['from_name'] . ' <' . $CONFIG['mail']['from_email'] . '>'
+        "If you did not request it, tell your administrator — the request has been logged.\n"
     );
 
     audit($pdo, (int) $tenant['id'], $user, 'login', $email, 'Password reset requested', $check['device']);

@@ -282,6 +282,10 @@ switch ($action) {
 
         $inviteLink = 'https://' . tenantPublicHost($target['subdomain_slug'], $CONFIG['multi_tenant']) . '/reset.html?token=' . $token;
 
+        sendAppMail($CONFIG, $target['contact_email'], 'Your Datafort administrator account',
+            "Your Datafort account is ready.\n\n" .
+            "Set your password here (link valid for 7 days):\n$inviteLink\n");
+
         $pdo->prepare(
             "UPDATE platform_tenants SET admin_seeded_at = NOW(), status = IF(status='provisioning','active',status) WHERE id = ?"
         )->execute([$targetId]);

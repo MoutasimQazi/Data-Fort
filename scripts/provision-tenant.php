@@ -48,6 +48,7 @@ if (PHP_SAPI !== 'cli') {
 
 require_once __DIR__ . '/../api/platform/crypto.php';
 require_once __DIR__ . '/../api/tenant-resolver.php';   // for tenantPublicHost()
+require_once __DIR__ . '/../api/mailer.php';
 
 function out(string $line): void { fwrite(STDOUT, $line . "\n"); }
 function fail(string $line): never { fwrite(STDERR, "ERROR: $line\n"); exit(1); }
@@ -219,12 +220,16 @@ $resetToken = seedTenantAndAdmin($tenantPdo, $slug, $tenant['name'], $tenant['co
 $inviteLink = "https://" . tenantPublicHost($slug, $mt) . "/reset.html?token={$resetToken}";
 $platformPdo->prepare("UPDATE platform_tenants SET admin_seeded_at=NOW() WHERE id=?")->execute([$tenant['id']]);
 out("  [3/5] first admin seeded: {$tenant['contact_email']}");
-// Printed, not emailed: SERVER-REQUIREMENTS.md section 5 (SPF for the
-// sending domain) is still an open item for the FIRST tenant, so this
-// script never assumes mail delivery works. Send the link by whatever
-// channel you already know reaches this contact.
-out("        invite link (send manually):");
-out("        $inviteLink");
+// Email through the configured authenticated SMTP account. Keep the
+// link as a CLI fallback if the mail server rejects the message.
+if (sendAppMail($CONFIG, $tenant['contact_email'], 'Your Datafort administrator account',
+    "Your Datafort account is ready.\n\n" .
+    "Set your password here (link valid for 7 days):\n$inviteLink\n")) {
+    out("        invite emailed successfully");
+} else {
+    out("        email failed; send this invite link manually:");
+    out("        $inviteLink");
+}
 
 // ── Step 4: scaffold the CA folder — key generation stays manual ──
 function scaffoldCaFolder(string $privateCaRoot, string $slug, string $tenantName): void

@@ -46,14 +46,13 @@ $pdo->prepare(
 
 $notifyTo = $CONFIG['mail']['reply_to'] ?? null;
 if ($notifyTo) {
-    @mail(
+    sendAppMail($CONFIG,
         $notifyTo,
         'Datafort pricing inquiry: ' . $name,
         "Name: $name\nEmail: $email\n" .
         ($company ? "Company: $company\n" : '') .
         ($plan ? "Plan: $plan\n" : '') .
-        ($message ? "\nMessage:\n$message\n" : ''),
-        'From: ' . ($CONFIG['mail']['from_name'] ?? 'Datafort') . ' <' . ($CONFIG['mail']['from_email'] ?? 'noreply@localhost') . '>'
+        ($message ? "\nMessage:\n$message\n" : '')
     );
 }
 

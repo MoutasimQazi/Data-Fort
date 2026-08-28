@@ -146,12 +146,16 @@ return [
 
     // ── Email relay (requirements 7.1) ──
     'mail' => [
-        'from_name'  => 'Movenetics Digital',
-        'from_email' => 'noreply@moveneticsdigital.com',
+        'from_name'  => 'Datafort',
+        'from_email' => 'noreply@example.com',
         // Reply-To points at a relay inbox, not the rep's own address —
         // otherwise the rep's mailbox becomes an unlogged side channel.
         // Also where stripe-webhook.php sends the "new paid order" notice.
-        'reply_to'   => 'leads@moveneticsdigital.com',
+        'reply_to'      => 'noreply@example.com',
+        'smtp_host'     => 'mail.example.com',
+        'smtp_port'     => 465,
+        'smtp_username' => 'noreply@example.com',
+        'smtp_password' => 'CHANGE_ME',
     ],
 
     // ── Stripe (Checkout + webhook) ──

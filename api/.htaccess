@@ -19,7 +19,7 @@
 # api/platform/auth.php and api/platform/device.php are covered by the
 # same line as api/auth.php and api/device.php, deliberately, rather
 # than needing a second copy of this rule in api/platform/.htaccess.
-<FilesMatch "^(config|config\.sample|db|auth|device|honeytoken|xlsx|_boot|crypto|tenant-resolver|http|stripe-client)\.php$">
+<FilesMatch "^(config|config\.sample|db|auth|device|honeytoken|xlsx|_boot|crypto|tenant-resolver|http|mailer|stripe-client)\.php$">
     Require all denied
 </FilesMatch>
 

@@ -20,6 +20,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/mailer.php';
 
 requireMethod('POST');
 
@@ -64,20 +65,17 @@ $subject = str_replace(["\r", "\n", "%0a", "%0d"], '', $subject);
 
 $mail = $CONFIG['mail'];
 
-$headers = implode("\r\n", [
-    'From: ' . $mail['from_name'] . ' <' . $mail['from_email'] . '>',
-    'Reply-To: ' . $mail['reply_to'],
-    'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset=UTF-8',
+$headers = [
+    'Reply-To' => $mail['reply_to'],
     // Names the sender for the recipient without exposing the rep's own
     // mailbox, and gives the audit log something to correlate against.
-    'X-Datafort-Sender: ' . $user['id'],
-    'X-Datafort-Lead: ' . $lead['ref'],
-]);
+    'X-Datafort-Sender' => $user['id'],
+    'X-Datafort-Lead' => $lead['ref'],
+];
 
 $signature = "\n\n--\n" . $user['name'] . "\n" . $mail['from_name'];
 
-$sent = @mail($lead['email'], $subject, $message . $signature, $headers);
+$sent = sendAppMail($CONFIG, $lead['email'], $subject, $message . $signature, $headers);
 
 /* The audit row records that a message went to this LEAD — never the
  * address itself. An audit log containing every recipient address is a

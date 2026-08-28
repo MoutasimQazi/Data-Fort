@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/mailer.php';
 
 requireMethod('POST');
 
@@ -61,11 +62,10 @@ if ($action === 'create') {
 
     $link = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/reset.html?token=' . $token;
 
-    @mail($email, 'Your Datafort account',
+    sendAppMail($CONFIG, $email, 'Your Datafort account',
         "You have been given access to Datafort.\n\n" .
         "Set your password here (link valid for 7 days):\n$link\n\n" .
-        "You will only be able to sign in from a company laptop.\n",
-        'From: ' . $CONFIG['mail']['from_name'] . ' <' . $CONFIG['mail']['from_email'] . '>');
+        "You will only be able to sign in from a company laptop.\n");
 
     audit($pdo, $tid, $user, 'user', $email,
         'Created ' . $role . ' account, quota ' . $quota . '/day', $ctx['device']);

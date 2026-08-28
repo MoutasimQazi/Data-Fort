@@ -102,15 +102,14 @@ if ($stmt->rowCount() === 1) {
     if ($notifyTo) {
         $email = $session['customer_details']['email'] ?? $session['customer_email'] ?? 'unknown';
         $amount = isset($session['amount_total']) ? number_format($session['amount_total'] / 100, 2) : '?';
-        @mail(
+        sendAppMail($CONFIG,
             $notifyTo,
             'Datafort: new paid order — ' . ($metadata['plan_name'] ?? 'unknown plan'),
             "Plan: " . ($metadata['plan_name'] ?? 'unknown') . "\n" .
             "Customer: $email\n" .
             "Amount: " . ($session['currency'] ?? '') . " $amount\n" .
             "Stripe session: " . ($session['id'] ?? '') . "\n\n" .
-            "Provision this tenant from the Orders tab in the platform panel.\n",
-            'From: ' . ($CONFIG['mail']['from_name'] ?? 'Datafort') . ' <' . ($CONFIG['mail']['from_email'] ?? 'noreply@localhost') . '>'
+            "Provision this tenant from the Orders tab in the platform panel.\n"
         );
     }
 }
