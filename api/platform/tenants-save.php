@@ -109,6 +109,10 @@ switch ($action) {
 
     case 'update':
         $name  = trim((string) ($in['name'] ?? $target['name']));
+        // planId links to the real catalog (platform_plans); plan is
+        // the free-text fallback for a custom deal with no catalog
+        // entry. A planId of 0/'' clears the link back to free-text-only.
+        $planId = !empty($in['planId']) ? (int) $in['planId'] : null;
         $plan  = trim((string) ($in['plan'] ?? '')) ?: null;
         $cName = trim((string) ($in['contactName'] ?? '')) ?: null;
         $cEmail = strtolower(trim((string) ($in['contactEmail'] ?? '')));
@@ -119,10 +123,17 @@ switch ($action) {
         if ($cEmail !== '' && !filter_var($cEmail, FILTER_VALIDATE_EMAIL)) {
             respond(['error' => 'Contact email is not valid.'], 400);
         }
+        if ($planId !== null) {
+            $planCheck = $pdo->prepare("SELECT id FROM platform_plans WHERE id = ?");
+            $planCheck->execute([$planId]);
+            if (!$planCheck->fetch()) {
+                respond(['error' => 'That plan no longer exists.'], 400);
+            }
+        }
 
         $pdo->prepare(
-            "UPDATE platform_tenants SET name=?, plan=?, contact_name=?, contact_email=? WHERE id=?"
-        )->execute([$name, $plan, $cName, $cEmail, $targetId]);
+            "UPDATE platform_tenants SET name=?, plan=?, plan_id=?, contact_name=?, contact_email=? WHERE id=?"
+        )->execute([$name, $plan, $planId, $cName, $cEmail, $targetId]);
 
         platformAudit($pdo, $admin, 'tenant_update', $target['subdomain_slug'], 'Registry details edited', $targetId);
         break;

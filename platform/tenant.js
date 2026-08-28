@@ -18,6 +18,20 @@
   };
 
   var current = null;
+  var plans = [];
+
+  function loadPlans() {
+    return API.plans().then(function (res) {
+      plans = res.plans;
+      var sel = document.getElementById('fPlanId');
+      sel.innerHTML = '<option value="">— no catalog plan (use custom label) —</option>' +
+        plans.map(function (p) {
+          var reps = p.maxReps === null ? 'unlimited reps' : ('up to ' + p.maxReps + ' reps');
+          return '<option value="' + p.id + '">' + D.escape(p.name) + ' — ' + D.escape(p.priceLabel) + ' · ' + reps +
+            (p.isActive ? '' : ' (retired)') + '</option>';
+        }).join('');
+    }).catch(D.fail);
+  }
 
   function paintChecklist(p) {
     var steps = [
@@ -40,11 +54,13 @@
   function load() {
     return API.tenantDetail(id).then(function (t) {
       current = t;
+      var planLabel = t.planName || t.plan;
       document.getElementById('tName').textContent = t.name;
-      document.getElementById('tSlug').textContent = t.slug + (t.plan ? ' · ' + t.plan : '');
+      document.getElementById('tSlug').textContent = t.slug + (planLabel ? ' · ' + planLabel : '');
       document.getElementById('tStatusBadge').innerHTML = STATUS_BADGE[t.status] || t.status;
 
       document.getElementById('fName').value = t.name || '';
+      document.getElementById('fPlanId').value = t.planId || '';
       document.getElementById('fPlan').value = t.plan || '';
       document.getElementById('fContactName').value = t.contactName || '';
       document.getElementById('fContactEmail').value = t.contactEmail || '';
@@ -99,6 +115,7 @@
     API.saveTenant({
       action: 'update', id: id,
       name: document.getElementById('fName').value.trim(),
+      planId: document.getElementById('fPlanId').value,
       plan: document.getElementById('fPlan').value.trim(),
       contactName: document.getElementById('fContactName').value.trim(),
       contactEmail: document.getElementById('fContactEmail').value.trim()
@@ -197,5 +214,5 @@
     }).catch(D.fail);
   });
 
-  D.ready(function () { load(); loadAudit(); });
+  D.ready(function () { loadPlans().then(load); loadAudit(); });
 })();

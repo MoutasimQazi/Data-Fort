@@ -67,6 +67,9 @@ window.DatafortAPI = (function () {
     tenantDetail: function (id) { return request('tenant-detail.php?id=' + encodeURIComponent(id)); },
     saveTenant:   function (b) { return request('tenants-save.php', { method: 'POST', body: b }); },
 
+    plans:     function ()  { return request('plans-list.php'); },
+    savePlan:  function (b) { return request('plans-save.php', { method: 'POST', body: b }); },
+
     admins:     function ()  { return request('admins-list.php'); },
     saveAdmin:  function (b) { return request('admins-save.php', { method: 'POST', body: b }); },
 

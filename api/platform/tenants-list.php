@@ -32,7 +32,11 @@ if ($q !== '') {
 }
 
 $stmt = $pdo->prepare(
-    "SELECT * FROM platform_tenants WHERE " . implode(' AND ', $where) . " ORDER BY name"
+    "SELECT t.*, p.name AS plan_name, p.max_reps AS plan_max_reps
+       FROM platform_tenants t
+       LEFT JOIN platform_plans p ON p.id = t.plan_id
+      WHERE " . implode(' AND ', $where) . "
+      ORDER BY t.name"
 );
 $stmt->execute($params);
 
@@ -43,7 +47,11 @@ respond([
             'name'         => $t['name'],
             'slug'         => $t['subdomain_slug'],
             'status'       => $t['status'],
-            'plan'         => $t['plan'],
+            // The linked catalog plan's name wins when set; the
+            // free-text fallback (a custom/negotiated deal) otherwise.
+            'plan'         => $t['plan_name'] ?? $t['plan'],
+            'planId'       => $t['plan_id'] ? (int) $t['plan_id'] : null,
+            'planMaxReps'  => $t['plan_max_reps'] !== null ? (int) $t['plan_max_reps'] : null,
             'contactName'  => $t['contact_name'],
             'contactEmail' => $t['contact_email'],
             'createdAt'    => $t['created_at'],

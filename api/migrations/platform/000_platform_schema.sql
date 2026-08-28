@@ -40,6 +40,40 @@ SET NAMES utf8mb4;
 -- it once per request (when multi_tenant.enabled is true) to decide
 -- which database api/db.php should open.
 
+-- ══ Pricing catalog ═══════════════════════════════════════════════
+--
+-- Plans the platform owner actually manages (create/edit/retire) from
+-- platform/pricing.html — not the same thing as the public pricing.html
+-- marketing page at the project root, which is static copy for
+-- prospects. This table is what a tenant is actually assigned to.
+--
+-- max_reps is CONTRACTUAL, not enforced. Enforcing it would mean this
+-- database counting rows in a tenant's own `users` table — exactly the
+-- boundary this product is sold on never crossing (see
+-- tenants-save.php's header). It is shown on the tenant's registry
+-- page as what they're entitled to; actually capping it would need a
+-- column and a check inside the TENANT's own database instead,
+-- written once at provisioning time the same deliberate way
+-- db_provisioned_at etc. already are. Not built yet — see the
+-- platform pricing page for the honest todo list this mirrors.
+
+CREATE TABLE IF NOT EXISTS platform_plans (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name          VARCHAR(80) NOT NULL,
+  price_label   VARCHAR(40) NOT NULL,       -- display text: '₹25,000/mo', 'Custom' — not a billing integration
+  max_reps      SMALLINT UNSIGNED NULL,     -- NULL = unlimited (Enterprise-style)
+  features      TEXT NULL,                  -- one bullet per line
+  sort_order    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  is_active     TINYINT(1) NOT NULL DEFAULT 1,   -- inactive = kept for tenants already on it, hidden from new assignment
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  -- Backs the seed block's ON DUPLICATE KEY UPDATE below, and stops
+  -- the platform admin creating two plans that only differ by case.
+  UNIQUE KEY uq_plans_name (name)
+) ENGINE=InnoDB;
+
+
 CREATE TABLE IF NOT EXISTS platform_tenants (
   id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 
@@ -48,7 +82,13 @@ CREATE TABLE IF NOT EXISTS platform_tenants (
 
   status          ENUM('pending','provisioning','active','suspended','deprovisioned')
                     NOT NULL DEFAULT 'pending',
+
+  -- plan is a free-text fallback label (kept for a custom/negotiated
+  -- deal with no catalog entry); plan_id is the real link once the
+  -- tenant is on an actual platform_plans row. Prefer plan_id's name
+  -- for display when set.
   plan            VARCHAR(60) NULL,
+  plan_id         INT UNSIGNED NULL,
 
   contact_name    VARCHAR(160) NULL,
   contact_email   VARCHAR(190) NULL,
@@ -75,7 +115,9 @@ CREATE TABLE IF NOT EXISTS platform_tenants (
   created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-  KEY ix_tenants_status (status)
+  KEY ix_tenants_status (status),
+  KEY ix_tenants_plan (plan_id),
+  CONSTRAINT fk_tenants_plan FOREIGN KEY (plan_id) REFERENCES platform_plans(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 
@@ -257,3 +299,21 @@ CREATE TABLE IF NOT EXISTS platform_audit_log (
 --
 -- which prompts for a password interactively and never writes it to
 -- disk, a log, or version control.
+--
+-- Starter plan rows ARE seeded below, unlike the admin account above —
+-- these hold no secret, and platform/pricing.html would otherwise be
+-- an empty page on a fresh install. Edit or delete them from that page
+-- once real figures are decided; nothing else in the app depends on
+-- these specific rows existing.
+
+INSERT INTO platform_plans (name, price_label, max_reps, features, sort_order, is_active) VALUES
+  ('Starter', '₹XX,XXX/mo', 5,
+   'Masked contact reveal with a per-rep daily quota\nEvery reveal logged in an append-only audit trail\nWatermarked reveal images\nBulk import with automatic de-duplication\nFollow-up email relay',
+   10, 1),
+  ('Growth', '₹XX,XXX/mo', 25,
+   'Everything in Starter\nmTLS device certificates — only enrolled company laptops sign in\nSession bound to the device that created it\nSeeded decoy leads (honeytokens)\nBurst-reveal anomaly alerts\nPriority support',
+   20, 1),
+  ('Enterprise', 'Custom', NULL,
+   'Everything in Growth\nDedicated database — never shared with another customer\nDedicated private certificate authority\nDedicated subdomain and Apache vhost\nCustom device-enforcement policy\nSLA-backed support',
+   30, 1)
+ON DUPLICATE KEY UPDATE name = VALUES(name);

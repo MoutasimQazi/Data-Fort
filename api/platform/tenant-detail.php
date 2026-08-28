@@ -18,7 +18,12 @@ if ($id <= 0) {
     respond(['error' => 'Tenant id required'], 400);
 }
 
-$stmt = $pdo->prepare("SELECT * FROM platform_tenants WHERE id = ? LIMIT 1");
+$stmt = $pdo->prepare(
+    "SELECT t.*, p.name AS plan_name, p.max_reps AS plan_max_reps
+       FROM platform_tenants t
+       LEFT JOIN platform_plans p ON p.id = t.plan_id
+      WHERE t.id = ? LIMIT 1"
+);
 $stmt->execute([$id]);
 $t = $stmt->fetch();
 
@@ -32,6 +37,9 @@ respond([
     'slug'         => $t['subdomain_slug'],
     'status'       => $t['status'],
     'plan'         => $t['plan'],
+    'planId'       => $t['plan_id'] ? (int) $t['plan_id'] : null,
+    'planName'     => $t['plan_name'],
+    'planMaxReps'  => $t['plan_max_reps'] !== null ? (int) $t['plan_max_reps'] : null,
     'contactName'  => $t['contact_name'],
     'contactEmail' => $t['contact_email'],
     'database'     => [
