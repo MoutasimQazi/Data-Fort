@@ -287,6 +287,36 @@ CREATE TABLE IF NOT EXISTS platform_audit_log (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+-- ══ Inbound sales leads ═══════════════════════════════════════════
+--
+-- Submitted from the public pricing.html's contact form via the one
+-- other unauthenticated endpoint besides public-plans.php — see
+-- api/platform/leads-capture.php. Stored here as the durable copy;
+-- an email notification is also attempted but never relied on alone —
+-- SERVER-REQUIREMENTS.md section 5 already flags this domain's mail
+-- deliverability as unresolved, so an inquiry landing only in an
+-- inbox that never receives it would mean losing it silently.
+--
+-- Not the same thing as a tenant's own `leads` table (the CRM data
+-- this product exists to protect) — this is a handful of rows about
+-- people asking about buying Datafort itself, small enough that no
+-- masking/quota/audit machinery is warranted.
+
+CREATE TABLE IF NOT EXISTS platform_leads (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name          VARCHAR(160) NOT NULL,
+  email         VARCHAR(190) NOT NULL,
+  company       VARCHAR(160) NULL,
+  plan_interest VARCHAR(80) NULL,     -- which plan's "Talk to us" they clicked, if any
+  message       TEXT NULL,
+  ip            VARCHAR(45) NULL,
+  status        ENUM('new','contacted','closed') NOT NULL DEFAULT 'new',
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  KEY ix_pleads_status (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- ══ Seed ══════════════════════════════════════════════════════════
 --
 -- Deliberately NO platform_admins row here. The mistake already made

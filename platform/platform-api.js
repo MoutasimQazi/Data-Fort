@@ -70,6 +70,9 @@ window.DatafortAPI = (function () {
     plans:     function ()  { return request('plans-list.php'); },
     savePlan:  function (b) { return request('plans-save.php', { method: 'POST', body: b }); },
 
+    leads:     function (p) { return request('leads-list.php' + qs(p)); },
+    saveLead:  function (b) { return request('leads-save.php', { method: 'POST', body: b }); },
+
     admins:     function ()  { return request('admins-list.php'); },
     saveAdmin:  function (b) { return request('admins-save.php', { method: 'POST', body: b }); },
 

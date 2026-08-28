@@ -167,6 +167,34 @@
     @media (max-width: 700px) {
       .plan--featured { transform: none; }
     }
+
+    /* ── Contact modal ── self-contained rather than pulling in the
+       whole admin panel's app.css just for .modal — this page has no
+       other dependency on it. */
+    .cmodal {
+      position: fixed; inset: 0; z-index: 50;
+      display: grid; place-items: center;
+      background: rgba(11, 11, 12, .55);
+      padding: 20px;
+    }
+    .cmodal[hidden] { display: none; }
+    .cmodal__box {
+      width: 100%; max-width: 440px; background: var(--surface);
+      border-radius: var(--r-lg); box-shadow: var(--shadow-lg);
+      padding: 26px 26px 22px;
+    }
+    .cmodal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .cmodal__head h2 { font-family: var(--font-head); font-size: 19px; margin: 0; }
+    .cmodal__close {
+      border: none; background: none; cursor: pointer; color: var(--text-faint);
+      width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--r-sm);
+    }
+    .cmodal__close:hover { background: var(--surface-alt); color: var(--text); }
+    .cmodal p.lead { margin: 0 0 16px; font-size: 13px; color: var(--text-muted); }
+    .cmodal .field { margin-bottom: 12px; }
+    .cmodal__hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+    .cmodal__done { text-align: center; padding: 12px 0; }
+    .cmodal__done svg { width: 40px; height: 40px; color: var(--green); margin-bottom: 10px; }
   </style>
 </head>
 
@@ -214,7 +242,7 @@
       <div class="plan__for">Small teams getting off spreadsheets</div>
       <div class="plan__price"><span class="amt">₹XX,XXX</span><span class="per">/ month</span></div>
       <div class="plan__note">Up to 5 sales reps</div>
-      <a class="plan__cta" href="mailto:leads@moveneticsdigital.com?subject=Datafort%20Starter">Talk to us</a>
+      <button type="button" class="plan__cta" data-open-contact="Starter">Talk to us</button>
       <ul class="plan__features">
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Masked contact reveal with a per-rep daily quota</li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Every reveal logged in an append-only audit trail</li>
@@ -233,7 +261,7 @@
       <div class="plan__for">Teams who need to know whose laptop it left from</div>
       <div class="plan__price"><span class="amt">₹XX,XXX</span><span class="per">/ month</span></div>
       <div class="plan__note">Up to 25 sales reps</div>
-      <a class="plan__cta" href="mailto:leads@moveneticsdigital.com?subject=Datafort%20Growth">Talk to us</a>
+      <button type="button" class="plan__cta" data-open-contact="Growth">Talk to us</button>
       <ul class="plan__features">
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Everything in Starter</li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>mTLS device certificates — only enrolled company laptops sign in</li>
@@ -251,7 +279,7 @@
       <div class="plan__for">Physically separate from every other customer</div>
       <div class="plan__price"><span class="amt">Custom</span></div>
       <div class="plan__note">Unlimited reps</div>
-      <a class="plan__cta" href="mailto:leads@moveneticsdigital.com?subject=Datafort%20Enterprise">Talk to us</a>
+      <button type="button" class="plan__cta" data-open-contact="Enterprise">Talk to us</button>
       <ul class="plan__features">
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Everything in Growth</li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Your own dedicated database — never shared with another customer</li>
@@ -360,9 +388,69 @@
   <div class="pfoot">
     <h2>Not sure which plan fits?</h2>
     <p>Tell us how many reps you have and how your laptops are managed — we'll tell you the smallest plan that actually covers you.</p>
-    <a class="btn" href="mailto:leads@moveneticsdigital.com?subject=Datafort%20pricing">Talk to us</a>
+    <button type="button" class="btn" data-open-contact="">Talk to us</button>
   </div>
 
+</div>
+
+<!-- ══ Contact modal ═══════════════════════════════════════════════
+     Replaces the mailto: links every "Talk to us" button used to be —
+     those depended on the visitor's OS having a mail client
+     configured, and left nothing behind if they just closed the tab.
+     This is saved server-side (api/platform/leads-capture.php)
+     regardless of whether the email notification arrives. -->
+<div class="cmodal" id="contactModal" hidden role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+  <div class="cmodal__box">
+    <div class="cmodal__head">
+      <h2 id="contactTitle">Talk to us</h2>
+      <button type="button" class="cmodal__close" id="contactClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <form id="contactForm">
+      <p class="lead" id="contactLead">Tell us a bit about your team and we'll get back to you.</p>
+
+      <div class="alert alert--error" id="contactError" role="alert" hidden></div>
+
+      <div class="field">
+        <label class="field__label" for="cName">Name</label>
+        <input class="input" type="text" id="cName" required>
+      </div>
+      <div class="field">
+        <label class="field__label" for="cEmail">Work email</label>
+        <input class="input" type="email" id="cEmail" required>
+      </div>
+      <div class="field">
+        <label class="field__label" for="cCompany">Company</label>
+        <input class="input" type="text" id="cCompany">
+      </div>
+      <div class="field">
+        <label class="field__label" for="cMessage">How many reps, and how are laptops managed? (optional)</label>
+        <textarea class="input" id="cMessage" rows="3" style="resize:vertical;font-family:inherit"></textarea>
+      </div>
+
+      <!-- Honeypot — invisible to a person, often filled by a script.
+           api/platform/leads-capture.php drops the submission silently
+           if this is non-empty. -->
+      <div class="cmodal__hp" aria-hidden="true">
+        <label for="cWebsite">Leave blank</label>
+        <input type="text" id="cWebsite" name="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <input type="hidden" id="cPlan">
+
+      <button type="submit" class="btn btn--primary btn--block" id="contactSubmit" style="width:100%;margin-top:4px">
+        Send
+      </button>
+    </form>
+
+    <div class="cmodal__done" id="contactDone" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+      <h2 style="margin:0 0 6px">Thanks — got it.</h2>
+      <p style="margin:0;font-size:13px;color:var(--text-muted)">We'll get back to you shortly.</p>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -405,8 +493,7 @@
           '<div class="plan__name">' + escapeHtml(p.name) + '</div>' +
           '<div class="plan__price"><span class="amt">' + amt + '</span>' + per + '</div>' +
           '<div class="plan__note">' + escapeHtml(reps) + '</div>' +
-          '<a class="plan__cta" href="mailto:leads@moveneticsdigital.com?subject=' +
-            encodeURIComponent('Datafort ' + p.name) + '">Talk to us</a>' +
+          '<button type="button" class="plan__cta" data-open-contact="' + escapeHtml(p.name) + '">Talk to us</button>' +
           '<ul class="plan__features">' +
             p.features.map(function (f) {
               return '<li>' + CHECK_SVG + escapeHtml(f) + '</li>';
@@ -420,6 +507,95 @@
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) { if (data) renderPlans(data.plans); })
       .catch(function () { /* static fallback already on the page */ });
+  })();
+
+  (function () {
+    'use strict';
+
+    var modal   = document.getElementById('contactModal');
+    var form    = document.getElementById('contactForm');
+    var done    = document.getElementById('contactDone');
+    var errBox  = document.getElementById('contactError');
+    var submit  = document.getElementById('contactSubmit');
+    var lastFocus = null;
+
+    function open(planName) {
+      lastFocus = document.activeElement;
+      form.hidden = false;
+      done.hidden = true;
+      errBox.hidden = true;
+      document.getElementById('cPlan').value = planName || '';
+      document.getElementById('contactLead').textContent = planName
+        ? ('Tell us about your team and we’ll follow up about the ' + planName + ' plan.')
+        : 'Tell us a bit about your team and we’ll get back to you.';
+      modal.hidden = false;
+      document.getElementById('cName').focus();
+    }
+
+    function close() {
+      modal.hidden = true;
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+
+    // Event delegation — catches both the static buttons on the page
+    // and the ones renderPlans() inserts after the live catalog loads.
+    document.addEventListener('click', function (e) {
+      var trigger = e.target.closest('[data-open-contact]');
+      if (trigger) { open(trigger.dataset.openContact); return; }
+      if (e.target === modal) close();
+    });
+    document.getElementById('contactClose').addEventListener('click', close);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !modal.hidden) close();
+    });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errBox.hidden = true;
+
+      var name = document.getElementById('cName').value.trim();
+      var email = document.getElementById('cEmail').value.trim();
+      if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errBox.textContent = 'Enter your name and a valid email address.';
+        errBox.hidden = false;
+        return;
+      }
+
+      submit.disabled = true;
+      submit.textContent = 'Sending…';
+
+      fetch('api/platform/leads-capture.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'omit',
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          company: document.getElementById('cCompany').value.trim(),
+          message: document.getElementById('cMessage').value.trim(),
+          planInterest: document.getElementById('cPlan').value,
+          website: document.getElementById('cWebsite').value // honeypot
+        })
+      })
+        .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+        .then(function (r) {
+          submit.disabled = false;
+          submit.textContent = 'Send';
+          if (!r.ok) {
+            errBox.textContent = (r.data && (r.data.error || r.data.message)) || 'Could not send that — try again.';
+            errBox.hidden = false;
+            return;
+          }
+          form.hidden = true;
+          done.hidden = false;
+        })
+        .catch(function () {
+          submit.disabled = false;
+          submit.textContent = 'Send';
+          errBox.textContent = 'Could not reach the server. Check your connection and try again.';
+          errBox.hidden = false;
+        });
+    });
   })();
 </script>
 </body>
