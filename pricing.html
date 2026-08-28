@@ -118,17 +118,16 @@
     .plan__features li.dim { color: var(--text-faint); }
     .plan__features li.dim svg { color: var(--border); }
 
-    /* ── Note under the cards ── */
-    .pnote {
-      max-width: 74ch; margin: 40px auto 0; text-align: center;
-      font-size: 13.5px; color: var(--text-faint); line-height: 1.6;
+    .trustbar {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      margin: 38px 0 8px; overflow: hidden; border: 1px solid var(--border);
+      border-radius: var(--r-md); background: var(--border);
     }
-    .pnote code {
-      background: color-mix(in srgb, var(--border) 55%, transparent);
-      padding: 1px 5px; border-radius: 4px; font-size: .95em; color: var(--text-muted);
-    }
+    .trustbar__item { background: var(--surface); padding: 18px 20px; text-align: center; }
+    .trustbar__item strong { display: block; color: var(--text); font: 600 14px var(--font-head); }
+    .trustbar__item span { display: block; margin-top: 4px; color: var(--text-faint); font-size: 12px; }
 
-    /* ── Roadmap / add-ons ── */
+    /* ── Current capabilities ── */
     .proadmap { margin-top: 88px; }
     .proadmap__head { text-align: center; margin-bottom: 34px; }
     .proadmap__head h2 { font-family: var(--font-head); font-size: 24px; color: var(--text); margin: 0 0 8px; }
@@ -137,16 +136,18 @@
     .rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
     .rcard {
       background: var(--surface); border: 1px solid var(--border-soft);
-      border-radius: var(--r-md); padding: 18px 20px;
+      border-radius: var(--r-md); padding: 20px; box-shadow: var(--shadow-sm);
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
     }
+    .rcard:hover { transform: translateY(-2px); border-color: var(--border); box-shadow: var(--shadow-md); }
     .rcard__top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
     .rcard svg { width: 18px; height: 18px; flex: none; color: var(--brand); }
     .rcard__name { font-size: 13.5px; font-weight: 600; color: var(--text); }
     .rcard p { margin: 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
     .rcard__tag {
       display: inline-block; margin-top: 10px; font-size: 10.5px; font-weight: 700;
-      letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint);
-      background: var(--surface-alt); border: 1px solid var(--border-soft);
+      letter-spacing: .04em; text-transform: uppercase; color: var(--green);
+      background: color-mix(in srgb, var(--green) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--green) 22%, var(--border));
       padding: 2px 8px; border-radius: 999px;
     }
 
@@ -166,6 +167,7 @@
 
     @media (max-width: 700px) {
       .plan--featured { transform: none; }
+      .trustbar { grid-template-columns: 1fr; }
     }
 
     /* ── Contact modal ── self-contained rather than pulling in the
@@ -230,6 +232,12 @@
 
   <div class="alert alert--info" id="checkoutStatus" hidden style="max-width:640px;margin:0 auto 24px"></div>
 
+  <div class="trustbar" aria-label="Datafort security foundations">
+    <div class="trustbar__item"><strong>No contact-list exports</strong><span>Keep valuable lead data inside the workspace</span></div>
+    <div class="trustbar__item"><strong>Every reveal is attributable</strong><span>Viewer, device and time are recorded</span></div>
+    <div class="trustbar__item"><strong>Security grows with you</strong><span>From controlled access to isolated infrastructure</span></div>
+  </div>
+
   <!-- The three cards below render on load as an immediate, no-flash
        fallback. If api/platform/public-plans.php answers, JS replaces
        them with the live catalog from platform/pricing.html — so
@@ -242,7 +250,7 @@
     <div class="plan">
       <div class="plan__name">Starter</div>
       <div class="plan__for">Small teams getting off spreadsheets</div>
-      <div class="plan__price"><span class="amt">₹XX,XXX</span><span class="per">/ month</span></div>
+      <div class="plan__price"><span class="amt">Contact us</span></div>
       <div class="plan__note">Up to 5 sales reps</div>
       <button type="button" class="plan__cta" data-open-contact="Starter">Talk to us</button>
       <ul class="plan__features">
@@ -261,7 +269,7 @@
       <span class="plan__badge">Most chosen</span>
       <div class="plan__name">Growth</div>
       <div class="plan__for">Teams who need to know whose laptop it left from</div>
-      <div class="plan__price"><span class="amt">₹XX,XXX</span><span class="per">/ month</span></div>
+      <div class="plan__price"><span class="amt">Contact us</span></div>
       <div class="plan__note">Up to 25 sales reps</div>
       <button type="button" class="plan__cta" data-open-contact="Growth">Talk to us</button>
       <ul class="plan__features">
@@ -295,18 +303,10 @@
 
   </div>
 
-  <p class="pnote">
-    Plans and prices above are edited from the platform admin's Pricing page, not this file —
-    <code>₹XX,XXX</code> means nobody's replaced the placeholder there yet. Every plan's data is masked,
-    logged and watermarked the same way; what changes tier to tier is device-level security depth,
-    seat count, and how isolated your infrastructure is.
-  </p>
-
-
   <div class="proadmap">
     <div class="proadmap__head">
-      <h2>Features we can add</h2>
-      <p>Not built into Datafort yet — available to discuss for Enterprise plans or a paid roadmap slot.</p>
+      <h2>Built into Datafort today</h2>
+      <p>The controls your team needs to work leads without turning the contact list into a downloadable file.</p>
     </div>
 
     <div class="rgrid">
@@ -314,73 +314,73 @@
       <div class="rcard">
         <div class="rcard__top">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1.5"/></svg>
-          <span class="rcard__name">SSO / SAML sign-in</span>
+          <span class="rcard__name">Masked contact access</span>
         </div>
-        <p>Sign in through your own identity provider instead of a Datafort password.</p>
-        <span class="rcard__tag">Roadmap</span>
+        <p>Phone numbers and email addresses stay masked until an authorised rep deliberately reveals them.</p>
+        <span class="rcard__tag">Available now</span>
       </div>
 
       <div class="rcard">
         <div class="rcard__top">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V7a2 2 0 0 1 2-2h9l5 5v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
-          <span class="rcard__name">CRM / API integration</span>
+          <span class="rcard__name">Append-only audit trail</span>
         </div>
-        <p>A controlled, audited API so leads and outcomes sync with your CRM instead of a manual export.</p>
-        <span class="rcard__tag">Roadmap</span>
+        <p>Sign-ins, reveals, assignments, status changes and relay emails remain attributable to the person and device.</p>
+        <span class="rcard__tag">Available now</span>
       </div>
 
       <div class="rcard">
         <div class="rcard__top">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
-          <span class="rcard__name">Auto-assignment rules</span>
+          <span class="rcard__name">Daily exposure controls</span>
         </div>
-        <p>Route new leads to reps by territory, industry or current workload instead of assigning by hand.</p>
-        <span class="rcard__tag">Roadmap</span>
+        <p>Per-rep reveal quotas and daily lead targets keep access proportional to the work each person needs to do.</p>
+        <span class="rcard__tag">Available now</span>
       </div>
 
       <div class="rcard">
         <div class="rcard__top">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
-          <span class="rcard__name">Controlled mobile access</span>
+          <span class="rcard__name">Managed lead distribution</span>
         </div>
-        <p>Phones are blocked outright today, on purpose — a watermarked, containment-aware mobile view is possible if you need field reps covered.</p>
-        <span class="rcard__tag">Roadmap</span>
+        <p>Import in bulk, remove duplicates automatically, assign daily books and recall access without exporting the source list.</p>
+        <span class="rcard__tag">Available now</span>
       </div>
 
       <div class="rcard">
         <div class="rcard__top">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19c-4 0-7.5-3-8-7 .5-4 4-7 8-7s7.5 3 8 7c-.5 4-4 7-8 7z"/><circle cx="12" cy="12" r="2.5"/></svg>
-          <span class="rcard__name">Branded watermark</span>
+          <span class="rcard__name">Viewer-bound watermarks</span>
         </div>
-        <p>Your own logo baked into every revealed contact image instead of the default mark.</p>
-        <span class="rcard__tag">Add-on</span>
+        <p>Revealed contact images carry identifying marks that tie captured information back to its viewer.</p>
+        <span class="rcard__tag">Available now</span>
       </div>
 
       <div class="rcard">
         <div class="rcard__top">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-          <span class="rcard__name">Chat alerts</span>
+          <span class="rcard__name">Secure email relay</span>
         </div>
-        <p>Burst-reveal and blocked-device alerts pushed straight to Slack or Teams, not just the dashboard badge.</p>
-        <span class="rcard__tag">Roadmap</span>
+        <p>Reps can follow up by email while the lead's address remains on the server and the interaction stays logged.</p>
+        <span class="rcard__tag">Available now</span>
       </div>
 
       <div class="rcard">
         <div class="rcard__top">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M2 20h20"/><path d="m9 9 2 2 4-4"/></svg>
-          <span class="rcard__name">Instant device revocation</span>
+          <span class="rcard__name">Company-device trust</span>
         </div>
-        <p>A revoked laptop's certificate is rejected by Apache within seconds, not just blocked inside the app.</p>
-        <span class="rcard__tag">Enterprise add-on</span>
+        <p>mTLS certificates restrict sign-in to enrolled laptops, with sessions bound to the device that created them.</p>
+        <span class="rcard__tag">Growth &amp; Enterprise</span>
       </div>
 
       <div class="rcard">
         <div class="rcard__top">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v10l7 4"/><path d="M22 6 12 12"/></svg>
-          <span class="rcard__name">Data residency options</span>
+          <span class="rcard__name">Leak attribution and alerts</span>
         </div>
-        <p>Host in a specific region for teams with data-residency requirements beyond a single country.</p>
-        <span class="rcard__tag">Enterprise add-on</span>
+        <p>Seeded decoy leads and burst-reveal monitoring help identify suspicious access before a list disappears.</p>
+        <span class="rcard__tag">Growth &amp; Enterprise</span>
       </div>
 
     </div>
@@ -486,7 +486,8 @@
         var reps = p.maxReps === null
           ? 'Unlimited reps'
           : ('Up to ' + p.maxReps + ' rep' + (p.maxReps === 1 ? '' : 's'));
-        var priceParts = String(p.priceLabel).split('/');
+        var cleanPrice = /XX/i.test(String(p.priceLabel)) ? 'Contact us' : String(p.priceLabel);
+        var priceParts = cleanPrice.split('/');
         var amt = escapeHtml(priceParts[0]);
         var per = priceParts.length > 1 ? '<span class="per">/' + escapeHtml(priceParts.slice(1).join('/')) + '</span>' : '';
 
