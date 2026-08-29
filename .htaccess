@@ -39,8 +39,17 @@
 # SSL_CLIENT_VERIFY is empty and this would redirect EVERY visitor,
 # including into a loop on no-device.html itself.
 #
+# The public marketing pages must be excluded too, and the bare "/"
+# with them — landing.html is the DirectoryIndex, so without that first
+# condition enabling this rule would put the whole public site behind a
+# client certificate. A prospect does not have one and never will.
+#
 # <IfModule mod_rewrite.c>
 #     RewriteEngine On
+#     RewriteCond %{REQUEST_URI} ^/$ [OR]
+#     RewriteCond %{REQUEST_URI} ^/(landing|pricing)\.html$
+#     RewriteRule ^ - [L]
+#
 #     RewriteCond %{REQUEST_URI} !^/no-device\.html$
 #     RewriteCond %{REQUEST_URI} !^/(style|app|login|guard)\.css$
 #     RewriteCond %{REQUEST_URI} !^/(theme)\.js$
@@ -117,4 +126,9 @@
 
 # ══ Misc ══════════════════════════════════════════════════════════
 Options -Indexes
-DirectoryIndex login.html index.html
+# landing.html first: the document root is a public marketing surface,
+# not the sign-in screen. A prospect who types the bare domain gets the
+# page that explains the product; login.html is still one click away in
+# the nav, and every in-app redirect targets it by name (api.js,
+# app.js, reset.html) so none of them depend on this order.
+DirectoryIndex landing.html index.html

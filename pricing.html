@@ -57,6 +57,12 @@
       text-decoration: none; padding: 8px 14px; border-radius: var(--r-sm);
     }
     .ptop a.signin:hover { color: var(--text); background: var(--surface-alt); }
+    /* Section links back to the landing page. They inherit .signin's
+       styling above; this only lays them out and drops them on narrow
+       screens, where Sign in is the link that has to survive. */
+    .ptop__tabs { display: flex; align-items: center; gap: 2px; margin-left: 14px; }
+    .ptop__tabs a { font-weight: 500; }
+    @media (max-width: 700px) { .ptop__tabs { display: none; } }
 
     /* ── Hero ── */
     .phero { text-align: center; padding: 56px 0 44px; }
@@ -227,11 +233,18 @@
 <div class="pwrap">
 
   <div class="ptop">
-    <a class="ptop__brand" href="login.html" style="text-decoration:none">
+    <!-- The mark goes home to the marketing page, not to sign-in. A
+         visitor on pricing is a prospect; the app is not where they are
+         trying to get back to. -->
+    <a class="ptop__brand" href="landing.html" style="text-decoration:none">
       <img class="i-light" src="brand/logo-mark.png" width="363" height="414" alt="" aria-hidden="true">
       <img class="i-dark" src="brand/logo-mark-light.png" width="363" height="414" alt="" aria-hidden="true">
       <span class="word">DATAFORT</span>
     </a>
+    <nav class="ptop__tabs" aria-label="Sections">
+      <a class="signin" href="landing.html#product">Product</a>
+      <a class="signin" href="landing.html#security">Security</a>
+    </nav>
     <div class="ptop__spacer"></div>
     <button type="button" id="themeBtn" class="themebtn" aria-label="Switch between light and dark theme">
       <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
