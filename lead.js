@@ -208,7 +208,14 @@
           quota.used  = err.payload.quota.used;
         }
         paintQuota();
-        D.toast('Daily reveal quota spent.', 'error');
+        /* 429 is returned by TWO different rules in lead-reveal.php: a
+         * spent daily quota, and the one-reveal-per-2-seconds burst
+         * guard. This hardcoded the quota message for both, so hitting
+         * the burst guard — which is what revealing a phone and then an
+         * email does — reported "Daily reveal quota spent" to a rep who
+         * had used 2 of 500. The server already sends the right message
+         * for each case; use it. my-leads.js has always done this. */
+        D.toast(err.message || 'Reveal refused.', 'error');
         return;
       }
       D.fail(err);

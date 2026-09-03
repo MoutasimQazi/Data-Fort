@@ -208,12 +208,19 @@
     if (!parsed) return '—';
     var then = parsed.getTime();
     var secs = Math.round((Date.now() - then) / 1000);
+    // Future timestamps are surfaced rather than flattened to "just
+    // now" — see the long note on the same branch in app.js.
+    if (secs < -60) return 'in ' + magnitude(-secs) + ' — check server clock';
     if (secs < 60) return 'just now';
-    if (secs < 3600) return Math.floor(secs / 60) + 'm ago';
-    if (secs < 86400) return Math.floor(secs / 3600) + 'h ago';
-    if (secs < 604800) return Math.floor(secs / 86400) + 'd ago';
+    if (secs < 604800) return magnitude(secs) + ' ago';
     return new Date(then).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
   };
+
+  function magnitude(secs) {
+    if (secs < 3600)  return Math.floor(secs / 60) + 'm';
+    if (secs < 86400) return Math.floor(secs / 3600) + 'h';
+    return Math.floor(secs / 86400) + 'd';
+  }
 
   function paintWhoami() {
     var s = Datafort.session;

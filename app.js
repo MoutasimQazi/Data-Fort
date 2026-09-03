@@ -395,15 +395,30 @@
     var then = parsed.getTime();
 
     var secs = Math.round((Date.now() - then) / 1000);
-    if (secs < 0)     return 'just now';
-    if (secs < 60)    return 'just now';
-    if (secs < 3600)  return Math.floor(secs / 60) + 'm ago';
-    if (secs < 86400) return Math.floor(secs / 3600) + 'h ago';
-    if (secs < 604800) return Math.floor(secs / 86400) + 'd ago';
+
+    /* A timestamp in the future is a broken clock, not an event, and
+     * this used to render it as "just now" — so a server running fast
+     * showed a whole screen of entries as "just now" regardless of how
+     * far apart they actually were, and the one screen whose job is to
+     * say when something happened quietly hid that it could not.
+     *
+     * Under a minute of negative skew is ordinary drift between two
+     * machines and still reads "just now". Past that it is reported as
+     * what it is, so the fault is visible instead of disguised. */
+    if (secs < -60) return 'in ' + magnitude(-secs) + ' — check server clock';
+    if (secs < 60)  return 'just now';
+    if (secs < 604800) return magnitude(secs) + ' ago';
 
     return new Date(then).toLocaleDateString(undefined,
       { day: 'numeric', month: 'short', year: 'numeric' });
   };
+
+  /** Bare size of a gap, without direction. Shared by both branches. */
+  function magnitude(secs) {
+    if (secs < 3600)  return Math.floor(secs / 60) + 'm';
+    if (secs < 86400) return Math.floor(secs / 3600) + 'h';
+    return Math.floor(secs / 86400) + 'd';
+  }
 
   /**
    * Absolute date and time, in the VIEWER's timezone.

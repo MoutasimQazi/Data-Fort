@@ -13,9 +13,64 @@
 
 declare(strict_types=1);
 
-header('Content-Type: text/plain; charset=utf-8');
+header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store');
 
+/* HTML rather than text/plain for one reason: the browser is the only
+ * correctly-set clock this script can reach. A timezone can be read out
+ * of MySQL, but "is the server's clock actually right?" cannot be
+ * answered from inside the server — it needs an outside reference, and
+ * the laptop looking at this page is one. The skew line below is filled
+ * in by JS comparing the two.
+ *
+ * This matters: a server can be perfectly configured for UTC and still
+ * be two hours wrong. Without this check the verdict further down would
+ * cheerfully report "already runs in UTC" while every timestamp on the
+ * site was drifting. */
+$serverEpochMs = (int) round(microtime(true) * 1000);
+?><!doctype html>
+<meta charset="utf-8">
+<title>Datafort · clock check</title>
+<style>
+  body { background:#0c0c0e; color:#e8e8ea; font:14px ui-monospace,Consolas,monospace;
+         margin:0; padding:28px; }
+  pre  { white-space:pre-wrap; margin:0; }
+  #skew { border:1px solid #2c2c32; border-radius:8px; padding:16px 18px;
+          margin:0 0 22px; background:#151518; }
+  b.bad  { color:#f0564b; }
+  b.good { color:#4ade80; }
+</style>
+<div id="skew">checking the server clock against this browser…</div>
+<script>
+  (function () {
+    var server = <?php echo $serverEpochMs; ?>;
+    // Network transit makes the browser's reading slightly later than
+    // the server's, so a second or two of positive skew is normal and
+    // not worth flagging.
+    var skew = Math.round((server - Date.now()) / 1000);
+    var box = document.getElementById('skew');
+    var abs = Math.abs(skew);
+    var human = abs < 60 ? abs + 's'
+      : abs < 3600 ? Math.floor(abs / 60) + 'm ' + (abs % 60) + 's'
+      : Math.floor(abs / 3600) + 'h ' + Math.floor((abs % 3600) / 60) + 'm';
+
+    if (abs <= 5) {
+      box.innerHTML = 'SERVER CLOCK: <b class="good">correct</b> — within ' + human +
+        ' of this browser.';
+    } else {
+      box.innerHTML = 'SERVER CLOCK: <b class="bad">WRONG by ' + human + '</b> (' +
+        (skew > 0 ? 'server is AHEAD of' : 'server is BEHIND') + ' this machine).<br><br>' +
+        'This is not a timezone problem — timezone offsets are whole ' +
+        'multiples of 15 minutes and no code change can correct a clock ' +
+        'that is simply wrong. Fix it on the host (enable NTP / ask your ' +
+        'provider to sync the system clock), then reload this page.<br><br>' +
+        'Assumes this machine\'s own clock is right — check that first if ' +
+        'the number looks impossible.';
+    }
+  })();
+</script>
+<pre>
+<?php
 echo "Datafort — clock and timezone check\n";
 echo str_repeat('=', 62) . "\n\n";
 
@@ -50,7 +105,7 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 8]
     );
 } catch (PDOException $e) {
-    echo 'Database connection failed: ' . $e->getMessage() . "\n";
+    echo 'Database connection failed: ' . htmlspecialchars($e->getMessage()) . "\n";
     echo "Run api/dbtest.php for help with that first.\n";
     exit;
 }
@@ -102,7 +157,7 @@ try {
         echo "audit_log is empty — nothing to migrate.\n\n";
     }
 } catch (PDOException $e) {
-    echo "Could not read audit_log: " . $e->getMessage() . "\n\n";
+    echo "Could not read audit_log: " . htmlspecialchars($e->getMessage()) . "\n\n";
 }
 
 /* ── Verdict ─────────────────────────────────────────────────────── */
@@ -111,17 +166,26 @@ echo str_repeat('=', 62) . "\n";
 if ($offsetSecs === 0) {
     echo "VERDICT: this MySQL already runs in UTC.\n\n";
     echo "Rows already stored are UTC, the app now pins the session to UTC\n";
-    echo "explicitly, and the API sends timestamps with a Z. Nothing further\n";
-    echo "to do — do NOT run the migration, it would shift correct rows.\n";
+    echo "explicitly, and the API sends timestamps with a Z. No migration\n";
+    echo "needed — do NOT run it, it would shift correct rows.\n\n";
+    echo "NOTE: this only says the ZONE is right. It says nothing about\n";
+    echo "whether the clock itself is. A server can be correctly set to UTC\n";
+    echo "and still be hours wrong, and every timestamp in the app would be\n";
+    echo "wrong with it. Read the SERVER CLOCK box at the top of this page —\n";
+    echo "that is the check that catches it.\n";
 } else {
     printf("VERDICT: this MySQL runs at UTC%+.2f, not UTC.\n\n", $offsetHrs);
     echo "Every row written before this fix holds server-local wall clock.\n";
     echo "The app now writes UTC, so old and new rows are in different zones\n";
     echo "until you convert the old ones. Run this ONCE, against a backup:\n\n";
-    printf("    mysql -u USER -p %s < api/migrations/009_utc_timestamps.sql\n\n", $db['name']);
+    printf("    mysql -u USER -p %s &lt; api/migrations/009_utc_timestamps.sql\n\n",
+           htmlspecialchars((string) $db['name']));
     printf("The migration shifts existing rows by %+d seconds.\n", -$offsetSecs);
     echo "Open it first — it carries the offset as a variable you must set\n";
     echo "to the value printed here, because only this server knows it.\n";
 }
 
 echo "\nDelete this file now.\n";
+
+// Closes the <pre> opened above the report.
+echo "</pre>\n";
