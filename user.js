@@ -239,7 +239,7 @@
         return '<tr>' +
           '<td><div class="cellstack"><span>' + D.ago(a.at) + '</span>' +
             '<span class="sub">' +
-            D.escape(new Date(String(a.at).replace(' ', 'T')).toLocaleString()) +
+            D.escape(D.when(a.at)) +
             '</span></div></td>' +
           '<td><span class="badge badge--plain ' + tone + '">' +
             D.escape(ACTION_LABEL[a.action] || a.action) + '</span></td>' +

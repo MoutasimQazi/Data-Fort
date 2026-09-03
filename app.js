@@ -326,16 +326,73 @@
       .replace(/'/g, '&#39;');
   };
 
-  Datafort.ago = function (iso) {
-    if (!iso) return '—';
-    // MySQL DATETIME comes back as "2026-08-19 07:03:58", which Safari
-    // will not parse. Normalise to ISO before handing it to Date.
-    var normalised = String(iso).indexOf('T') === -1
-      ? String(iso).replace(' ', 'T')
-      : String(iso);
+  /**
+   * The one place a server timestamp becomes a Date. Returns null for
+   * anything unparseable, so callers can render a dash rather than
+   * "Invalid Date".
+   *
+   * ── THE BUG THIS REPLACES ──
+   *
+   * The old code turned "2026-08-19 07:03:58" into "2026-08-19T07:03:58"
+   * and handed that to Date. A date-time with no offset is LOCAL time
+   * per the ECMAScript spec, so a UTC row was read as if it had
+   * happened at that wall-clock time in the viewer's own zone. Every
+   * timestamp was off by the viewer's UTC offset — three hours in the
+   * past for a viewer at UTC+3, and correct only in UTC itself.
+   *
+   * api/http.php now appends a Z, so the common path is simply a valid
+   * absolute instant. The two other cases are handled explicitly:
+   *
+   *   Legacy / no offset  — a naive datetime is read as UTC, matching
+   *                         what the server now writes. Rows written
+   *                         before the server was pinned to UTC are
+   *                         only correct if they were migrated; see
+   *                         api/migrations/009_utc_timestamps.sql.
+   *
+   *   Date-only           — "2026-08-19" is a calendar date, not an
+   *                         instant. new Date() would read it as
+   *                         midnight UTC and then render it local,
+   *                         showing the previous day for every viewer
+   *                         west of UTC. Built field-by-field as a
+   *                         local date instead, so the day stays the
+   *                         day everywhere.
+   */
+  Datafort.parseTime = function (value) {
+    if (!value) return null;
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
 
-    var then = new Date(normalised).getTime();
-    if (isNaN(then)) return '—';
+    var s = String(value).trim();
+    var d;
+
+    // Calendar date, no time component.
+    var dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (dateOnly) {
+      d = new Date(+dateOnly[1], +dateOnly[2] - 1, +dateOnly[3]);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    // Already carries a zone (the "…Z" or "+05:30" the API now sends).
+    if (/(Z|[+-]\d{2}:?\d{2})$/.test(s)) {
+      d = new Date(s.replace(' ', 'T'));
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    // Naive datetime. Read as UTC, which is what the server writes.
+    var m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/.exec(s);
+    if (m) {
+      d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)));
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  Datafort.ago = function (iso) {
+    var parsed = Datafort.parseTime(iso);
+    if (!parsed) return '—';
+
+    var then = parsed.getTime();
 
     var secs = Math.round((Date.now() - then) / 1000);
     if (secs < 0)     return 'just now';
@@ -346,6 +403,28 @@
 
     return new Date(then).toLocaleDateString(undefined,
       { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  /**
+   * Absolute date and time, in the VIEWER's timezone.
+   *
+   * undefined as the locale argument is deliberate — it means "use the
+   * browser's own locale", so a rep in Riyadh and one in Bengaluru each
+   * read the same instant in their own local time and format, with no
+   * per-tenant timezone setting to configure or get wrong.
+   */
+  Datafort.when = function (value, opts) {
+    var d = Datafort.parseTime(value);
+    if (!d) return '—';
+    return d.toLocaleString(undefined, opts);
+  };
+
+  /** Absolute calendar date, no time. */
+  Datafort.day = function (value, opts) {
+    var d = Datafort.parseTime(value);
+    if (!d) return '—';
+    return d.toLocaleDateString(undefined,
+      opts || { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   Datafort.money = function (n) {

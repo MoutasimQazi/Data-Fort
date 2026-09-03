@@ -46,11 +46,15 @@
     emptyEl.hidden = entries.length > 0;
 
     rowsEl.innerHTML = entries.map(function (a) {
-      var when = String(a.at || '').replace(' ', 'T');
-
+      // D.when() over a hand-rolled Date: the old "replace(' ','T')"
+      // produced a zoneless string, which the browser read as local
+      // time and so showed every audit entry off by the viewer's UTC
+      // offset. The audit log is the one screen where that matters
+      // most — it is the record you check to establish when something
+      // actually happened.
       return '<tr>' +
         '<td><div class="cellstack"><span>' + D.ago(a.at) + '</span>' +
-          '<span class="sub">' + D.escape(new Date(when).toLocaleString()) + '</span></div></td>' +
+          '<span class="sub">' + D.escape(D.when(a.at)) + '</span></div></td>' +
         '<td>' + D.escape(a.actor || 'System') + '</td>' +
         '<td><span class="badge badge--plain ' + (TONE[a.action] || 'badge--idle') + '">' +
           D.escape(LABEL[a.action] || a.action) + '</span></td>' +

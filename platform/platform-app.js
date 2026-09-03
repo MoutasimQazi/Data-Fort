@@ -157,11 +157,56 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   };
 
+  /* Mirror of Datafort.parseTime in the tenant app.js. The platform
+   * panel is served from a different directory and does not load
+   * app.js, so the two are separate copies on purpose — but they must
+   * agree, because they read the same kind of column. See the long
+   * note in app.js for why a zoneless string cannot be handed to
+   * Date(): it is read as local time, which put every platform
+   * timestamp out by the viewer's UTC offset. */
+  Datafort.parseTime = function (value) {
+    if (!value) return null;
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+
+    var s = String(value).trim();
+    var d;
+
+    var dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (dateOnly) {
+      d = new Date(+dateOnly[1], +dateOnly[2] - 1, +dateOnly[3]);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    if (/(Z|[+-]\d{2}:?\d{2})$/.test(s)) {
+      d = new Date(s.replace(' ', 'T'));
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    var m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/.exec(s);
+    if (m) {
+      d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)));
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  Datafort.when = function (value, opts) {
+    var d = Datafort.parseTime(value);
+    return d ? d.toLocaleString(undefined, opts) : '—';
+  };
+
+  Datafort.day = function (value, opts) {
+    var d = Datafort.parseTime(value);
+    return d ? d.toLocaleDateString(undefined,
+      opts || { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  };
+
   Datafort.ago = function (iso) {
-    if (!iso) return '—';
-    var normalised = String(iso).indexOf('T') === -1 ? String(iso).replace(' ', 'T') : String(iso);
-    var then = new Date(normalised).getTime();
-    if (isNaN(then)) return '—';
+    var parsed = Datafort.parseTime(iso);
+    if (!parsed) return '—';
+    var then = parsed.getTime();
     var secs = Math.round((Date.now() - then) / 1000);
     if (secs < 60) return 'just now';
     if (secs < 3600) return Math.floor(secs / 60) + 'm ago';

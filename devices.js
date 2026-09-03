@@ -89,7 +89,9 @@
 
     var expiringSoon = devices.filter(function (d) {
       if (d.status !== 'active' || !d.expiresAt) return false;
-      var days = (new Date(String(d.expiresAt).replace(' ', 'T')) - Date.now()) / 86400000;
+      var exp = D.parseTime(d.expiresAt);
+      if (!exp) return false;
+      var days = (exp - Date.now()) / 86400000;
       return days < 60 && days > 0;
     }).length;
 
@@ -123,9 +125,10 @@
   function expiryCell(d) {
     if (!d.expiresAt) return '<span style="color:var(--text-faint)">Not recorded</span>';
 
-    var date = new Date(String(d.expiresAt).replace(' ', 'T'));
+    var date = D.parseTime(d.expiresAt);
+    if (!date) return '<span style="color:var(--text-faint)">Not recorded</span>';
     var days = Math.round((date - Date.now()) / 86400000);
-    var when = date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    var when = D.day(date);
 
     // Flagged early: an expired certificate locks the employee out at
     // the TLS layer, where Datafort cannot show them a message at all.

@@ -482,8 +482,24 @@
     mount(host, function (w) { return drawTrend(w, rows, series, opts); }, wireTrend);
   }
 
+  /* "2026-08-19" handed to new Date() is parsed as midnight UTC and
+   * then rendered in the viewer's zone, so every chart label read one
+   * day early for anyone west of UTC. These are calendar dates from
+   * DATE(at)/reveal_date, not instants — built field by field they
+   * stay the day the server meant. Kept local rather than reaching for
+   * Datafort.parseTime so charts.js stays dependency-free, as its
+   * header promises. */
+  function localDate(value) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ''));
+    var d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   function dayLabel(d) {
-    return new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    var parsed = localDate(d);
+    return parsed
+      ? parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+      : '';
   }
 
   function drawTrend(w, rows, series, opts) {
@@ -600,8 +616,11 @@
       });
 
       var pts = series.map(function (s) { return y(r[s.key]).toFixed(1); }).join(',');
-      var title = new Date(r.date).toLocaleDateString(undefined,
-        { weekday: 'short', day: 'numeric', month: 'short' });
+      var titleDate = localDate(r.date);
+      var title = titleDate
+        ? titleDate.toLocaleDateString(undefined,
+            { weekday: 'short', day: 'numeric', month: 'short' })
+        : String(r.date || '');
 
       out += '<rect data-band="1" data-cx="' + x(i).toFixed(1) + '" data-pts="' + pts + '" ' +
              'x="' + Math.max(0, x(i) - bandW / 2).toFixed(1) + '" y="' + padT + '" ' +

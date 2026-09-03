@@ -147,10 +147,29 @@
       lead.revealed = lead.revealed || [];
       if (lead.revealed.indexOf(field) === -1) lead.revealed.push(field);
 
-      /* One value on screen at a time. render() rebuilds the whole
-       * detail list, so remask() is simply "render again" — the field is
-       * masked by default and nothing else has to be undone. */
+      /* Retire the previously revealed field BEFORE painting this one.
+       *
+       * claim() tears down the old reveal as its first act, so painting
+       * first meant the outgoing field's remask ran immediately after
+       * and undid the paint. Reveal a phone, then an email, and the
+       * email never appeared — the phone's teardown had wiped it. Doing
+       * the teardown up front leaves claim()'s own clear() a no-op. */
+      DatafortReveal.clear(true);
+
       var dd = document.querySelector('#details [data-field="' + field + '"]');
+
+      /* A response with neither an image nor a value left the button
+       * disabled forever, with nothing on screen to explain why — the
+       * rep had spent a reveal and had no way to ask for it again
+       * short of reloading. Put the cell back instead. */
+      if (!dd || (!res.image && !res.value)) {
+        if (dd) dd.innerHTML = contactCell(field);
+        else btn.disabled = false;
+        paintQuota();
+        D.toast('That value could not be displayed. Try again.', 'error');
+        return;
+      }
+
       if (dd) {
         if (res.image) {
           dd.innerHTML = '<span class="revealed">' +
@@ -162,8 +181,18 @@
             '<span class="revealed__ttl" data-countdown></span></span>';
         }
 
+        /* Re-mask THIS field only, the way my-leads.js does it.
+         *
+         * This used to be render(), which rebuilt the entire detail
+         * list. That was the root of the bug above, and it also threw
+         * away an unsaved selection in the status dropdown every time
+         * a reveal timed out. contactCell() re-reads lead.revealed, so
+         * the restored button still says "already revealed today". */
         DatafortReveal.claim(lead.id + ':' + field, res.image || null,
-          function () { render(); },
+          function () {
+            var cell = document.querySelector('#details [data-field="' + field + '"]');
+            if (cell) cell.innerHTML = contactCell(field);
+          },
           function (left) {
             var el = dd.querySelector('[data-countdown]');
             if (el) el.textContent = left + 's';

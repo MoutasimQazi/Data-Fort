@@ -75,9 +75,7 @@
     if (s.device) {
       rows.push(['Company laptop', D.escape(s.device.code)]);
       if (s.device.expires) {
-        rows.push(['Certificate expires',
-          new Date(String(s.device.expires).replace(' ', 'T'))
-            .toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })]);
+        rows.push(['Certificate expires', D.day(s.device.expires)]);
       }
     } else if (s.deviceMode && s.deviceMode !== 'off') {
       rows.push(['Company laptop',

@@ -11,6 +11,24 @@
 
 declare(strict_types=1);
 
+/* ══ Time ══════════════════════════════════════════════════════════
+ *
+ * THE RULE: the server stores and speaks UTC. The browser decides what
+ * that means in local time. Nothing in between guesses.
+ *
+ * This line pins PHP's half. db.php and platform/_boot.php pin MySQL's
+ * with `SET time_zone = '+00:00'`, and isoDates() below pins the wire
+ * format. All three are needed — any one of them alone still leaves a
+ * timestamp whose zone has to be inferred, and inference is what was
+ * wrong before.
+ *
+ * Without this, date()/strtotime() ran in whatever timezone the host
+ * happened to be set to (php.ini date.timezone, often UTC on shared
+ * hosting but not guaranteed), so PHP-generated times and MySQL NOW()
+ * could disagree on the same request.
+ */
+date_default_timezone_set('UTC');
+
 // ── Response headers ──
 //
 // Deliberately NOT 'Access-Control-Allow-Origin: *'. Datafort is served
@@ -36,11 +54,62 @@ function body(): array
     return is_array($data) ? $data : [];
 }
 
+/**
+ * Rewrites MySQL DATETIME strings into ISO-8601 UTC, recursively.
+ *
+ * ── WHY THIS EXISTS ──
+ *
+ * MySQL hands back "2026-09-04 11:32:11" — a naive wall clock with no
+ * zone attached. Put that in JSON and the browser does
+ * `new Date("2026-09-04T11:32:11")`, which ECMAScript defines as LOCAL
+ * time. So a row written at 11:32 UTC was read as 11:32 in the
+ * viewer's zone: correct only for a viewer sitting in UTC, and wrong
+ * by the viewer's whole offset everywhere else. A viewer at UTC+3 saw
+ * every timestamp three hours in the past, and "just now" events
+ * showed as "3h ago".
+ *
+ * Appending the Z makes the value an instant rather than a wall clock.
+ * toLocaleString() then renders it in whatever zone the viewer's own
+ * machine is in, with no configuration anywhere — which is the
+ * behaviour that was wanted all along.
+ *
+ * ── WHAT IT DELIBERATELY DOES NOT TOUCH ──
+ *
+ * Date-only values ("2026-09-04", from DATE(at) or reveal_date) are
+ * left exactly as they are. Those are calendar dates, not instants:
+ * stamping midnight-UTC on them would shift the day backwards for
+ * every viewer west of UTC, turning a fix into a different bug. The
+ * front end parses them as local calendar dates instead — see
+ * Datafort.parseTime in app.js.
+ *
+ * Only the full DATETIME shape is converted, so a lead field that
+ * happens to hold a date string is not silently rewritten either.
+ */
+function isoDates($value)
+{
+    if (is_array($value)) {
+        foreach ($value as $k => $v) {
+            $value[$k] = isoDates($v);
+        }
+        return $value;
+    }
+
+    if (is_string($value)
+        && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value)) {
+        return str_replace(' ', 'T', $value) . 'Z';
+    }
+
+    return $value;
+}
+
 /** Send a JSON response and stop. */
 function respond(array $payload, int $status = 200): void
 {
     http_response_code($status);
-    echo json_encode($payload);
+    // Every endpoint in both api/ and api/platform/ funnels through
+    // here, so this is the one place the timestamp contract has to be
+    // enforced — rather than 40 endpoints each remembering to format.
+    echo json_encode(isoDates($payload));
     exit;
 }
 

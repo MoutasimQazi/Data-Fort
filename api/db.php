@@ -41,6 +41,22 @@ try {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,   // real prepared statements
             PDO::ATTR_TIMEOUT            => 10,
+
+            /* Every timestamp column here is DATETIME, which stores the
+             * literal wall clock with no zone conversion — so NOW() and
+             * CURRENT_TIMESTAMP write whatever zone the MySQL session is
+             * in. Left at the default (SYSTEM) that is the DB host's
+             * local time, which nothing downstream knows, and which
+             * changes under you if the host is ever moved or observes
+             * DST. Pinning it to UTC makes every row written from here
+             * on unambiguous. See http.php's isoDates() for the other
+             * half — the format the browser actually receives.
+             *
+             * '+00:00' rather than 'UTC' on purpose: the named form
+             * needs the mysql.time_zone tables populated, which shared
+             * hosting frequently does not do, and fails the connection
+             * if they are missing. The numeric offset always works. */
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET time_zone = '+00:00'",
         ]
     );
 } catch (PDOException $e) {
